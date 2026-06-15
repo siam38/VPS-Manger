@@ -90,7 +90,7 @@ export default function Login({ onLogin }: Props) {
 
         <div className="text-center mt-6 space-y-1">
           <p className="text-dark-500 text-xs flex items-center justify-center gap-1">
-            Made with <Heart className="w-2.5 h-2.5 text-rose-400 fill-rose-400" /> by VPS Manager Team
+            Made with <Heart className="w-2.5 h-2.5 text-rose-400 fill-rose-400" /> by Siam
           </p>
           <p className="text-accent text-[10px] font-medium">VPS Manager v3.1</p>
         </div>

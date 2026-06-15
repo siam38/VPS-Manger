@@ -1,4 +1,4 @@
-# VPS Manager
+# VPS Manager by Siam
 
 ## Overview
 
@@ -108,4 +108,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details. (Note: A `LICENSE` file is not included in the provided project, consider adding one.)
+This project is licensed under the MIT License. See the `LICENSE` file for details.
