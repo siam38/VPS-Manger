@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+server/audit.log
+*.log
+.DS_Store

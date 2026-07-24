@@ -99,11 +99,19 @@ function getFileTypeInfo(type: string) {
   }
 }
 
+const ALLOWED_BASES = ['/root', '/var/www', '/home', '/opt', '/tmp'];
+
+function getAllowedBase(p: string): string {
+  return ALLOWED_BASES.find(b => p.startsWith(b)) || '/root';
+}
+
 export default function FileManager() {
   const [currentPath, setCurrentPath] = useState('/root');
   const [items, setItems] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showHidden, setShowHidden] = useState(false);
+  const [showHidden, setShowHidden] = useState(() => localStorage.getItem('vps_show_hidden') === 'true');
+  useEffect(() => { localStorage.setItem('vps_show_hidden', String(showHidden)); }, [showHidden]);
+  const [openclawBackPath, setOpenclawBackPath] = useState('/home');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [clipboard, setClipboard] = useState<{ items: string[]; mode: 'copy' | 'cut' } | null>(null);
@@ -471,15 +479,15 @@ export default function FileManager() {
   return (
     <div className="h-full flex flex-col animate-fade-in" onClick={() => setContextMenu(null)}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 p-3 border-b border-dark-700 bg-dark-800/30">
-        <button onClick={() => navigate(currentPath.substring(0, currentPath.lastIndexOf('/')) || '/')}
+      <div className="flex flex-wrap items-center gap-2 p-3 border-b border-dark-700 bg-dark-800/30 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:gap-1 max-sm:p-2">
+        <button onClick={() => navigate(currentPath.substring(0, currentPath.lastIndexOf('/')) || getAllowedBase(currentPath))}
           className="p-1.5 rounded-lg hover:bg-dark-700 text-dark-300 hover:text-white transition">
           <ArrowLeft className="w-4 h-4" />
         </button>
         
         {/* Breadcrumbs */}
         <div className="flex items-center gap-0.5 text-xs overflow-x-auto flex-1 min-w-0">
-          <button onClick={() => navigate('/')} className="text-dark-400 hover:text-white transition p-1 rounded">
+          <button onClick={() => navigate(getAllowedBase(currentPath))} className="text-dark-400 hover:text-white transition p-1 rounded">
             <Home className="w-3.5 h-3.5" />
           </button>
           {pathParts.map((part, i) => (
@@ -496,13 +504,51 @@ export default function FileManager() {
         </div>
 
         <div className="flex items-center gap-1">
+          <select
+            value={getAllowedBase(currentPath)}
+            onChange={e => navigate(e.target.value)}
+            className="bg-dark-900 border border-dark-600 rounded-lg text-xs max-sm:text-[10px] text-white px-2 max-sm:px-1 py-1.5 max-sm:py-1 focus:outline-none focus:border-accent"
+            title="Jump to base directory"
+          >
+            {ALLOWED_BASES.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <button
+            onClick={() => {
+              if (currentPath.startsWith('/home/ubuntu/.openclaw')) {
+                navigate(openclawBackPath);
+              } else {
+                setOpenclawBackPath(currentPath);
+                setShowHidden(true);
+                navigate('/home/ubuntu/.openclaw');
+              }
+            }}
+            className={`hidden md:inline-flex px-2 py-1.5 rounded-lg transition text-xs font-medium items-center gap-1.5 ${currentPath.startsWith('/home/ubuntu/.openclaw') ? 'bg-accent text-dark-900 hover:bg-accent/90' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
+            title={currentPath.startsWith('/home/ubuntu/.openclaw') ? 'Back to previous folder' : 'Open OpenClaw Workspace'}
+          >
+            OpenClaw
+          </button>
+          <button
+            onClick={() => {
+              if (currentPath.startsWith('/home/ubuntu/.openclaw')) {
+                navigate(openclawBackPath);
+              } else {
+                setOpenclawBackPath(currentPath);
+                setShowHidden(true);
+                navigate('/home/ubuntu/.openclaw');
+              }
+            }}
+            className={`md:hidden p-1.5 rounded-lg transition ${currentPath.startsWith('/home/ubuntu/.openclaw') ? 'bg-accent text-dark-900 hover:bg-accent/90' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
+            title={currentPath.startsWith('/home/ubuntu/.openclaw') ? 'Back' : 'OpenClaw'}
+          >
+            <Zap className="w-4 h-4" />
+          </button>
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dark-500" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search..."
-              className="w-32 md:w-40 pl-7 pr-2 py-1.5 bg-dark-900 border border-dark-600 rounded-lg text-xs text-white focus:outline-none focus:border-accent"
+              className="w-24 sm:w-32 md:w-40 pl-7 pr-2 py-1.5 bg-dark-900 border border-dark-600 rounded-lg text-xs text-white focus:outline-none focus:border-accent"
             />
           </div>
           <button onClick={() => setShowHidden(!showHidden)}
@@ -824,9 +870,15 @@ export default function FileManager() {
       )}
 
       {/* Status bar */}
-      <div className="px-4 py-1.5 border-t border-dark-700 bg-dark-800/30 text-xs text-dark-400 flex justify-between">
+      <div className="px-4 py-1.5 border-t border-dark-700 bg-dark-800/30 text-xs text-dark-400 flex justify-between items-center">
         <span>{filteredItems.length} items{selected.size > 0 ? ` \u00b7 ${selected.size} selected` : ''}</span>
-        <span>{currentPath}</span>
+        <input
+          value={currentPath}
+          onChange={e => setCurrentPath(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') navigate(currentPath); }}
+          className="bg-transparent text-right text-dark-400 hover:text-white focus:text-white focus:outline-none focus:border-b focus:border-accent px-1 min-w-0 flex-1 ml-4"
+          title="Press Enter to navigate"
+        />
       </div>
     </div>
   );
