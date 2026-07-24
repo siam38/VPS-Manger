@@ -1040,10 +1040,12 @@ app.get('/api/pm2/monit/:name', authMiddleware, async (req, res) => {
 // ─── Git Management ───
 const GIT_SYNC_CONFIG = path.join(__dirname, '..', 'git-sync-config.json');
 
+const GIT_SSH = 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o UserKnownHostsFile=/home/ubuntu/.ssh/known_hosts -o IdentitiesOnly=yes';
+
 function gitExec(cwd, cmd) {
   // Use array form to avoid shell interpretation of special characters like |
   const args = cmd.match(/"[^"]*"|'[^']*'|\S+/g).map(a => a.replace(/^["']|["']$/g, ''));
-  return require('child_process').execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 30000 }).trim();
+  return require('child_process').execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 30000, env: { ...process.env, HOME: '/home/ubuntu', GIT_SSH_COMMAND: GIT_SSH } }).trim();
 }
 
 function loadGitSyncConfig() {
@@ -1061,8 +1063,8 @@ app.get('/api/git/repos', authMiddleware, (req, res) => {
     const repos = output.trim().split('\n').filter(Boolean).map(p => {
       const rp = path.dirname(p);
       try {
-        const branch = execSync(`git -C "${rp}" branch --show-current`, { encoding: 'utf8' }).trim();
-        const remote = execSync(`git -C "${rp}" remote get-url origin 2>/dev/null`, { encoding: 'utf8' }).trim();
+        const branch = execSync(`git -C "${rp}" branch --show-current`, { encoding: 'utf8', env: { ...process.env, HOME: '/home/ubuntu', GIT_SSH_COMMAND: GIT_SSH } }).trim();
+        const remote = execSync(`git -C "${rp}" remote get-url origin 2>/dev/null`, { encoding: 'utf8', env: { ...process.env, HOME: '/home/ubuntu', GIT_SSH_COMMAND: GIT_SSH } }).trim();
         return { path: rp, branch, remote };
       } catch { return { path: rp, branch: '?', remote: '?' }; }
     });
