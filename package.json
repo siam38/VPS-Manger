@@ -23,7 +23,7 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.460.0",
     "monaco-editor": "^0.52.0",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.2.0",
     "node-pty": "^1.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -41,5 +41,10 @@
     "tailwindcss": "^3.4.16",
     "typescript": "^5.6.3",
     "vite": "^6.0.1"
+  },
+  "overrides": {
+    "brace-expansion": "^5.0.8",
+    "minimatch": "^10.2.5",
+    "glob": "^11.1.0"
   }
 }
