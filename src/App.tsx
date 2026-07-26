@@ -9,6 +9,7 @@ import Terminal from './pages/Terminal';
 import Processes from './pages/Processes';
 import PM2Manager from './pages/PM2Manager';
 import GitSync from './pages/GitSync';
+import { disconnectSocket } from './lib/socket';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -79,6 +80,9 @@ function App() {
   };
 
   const handleLogout = () => {
+    // Tear down the authenticated socket before dropping the token, otherwise
+    // the previous session's connection stays open server-side.
+    disconnectSocket();
     localStorage.removeItem('vps_token');
     setToken(null);
     setVerified(false);
