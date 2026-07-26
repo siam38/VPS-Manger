@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { apiGet, apiPost, apiDelete, downloadUrl } from '../lib/api';
+import { apiGet, apiPost, apiDelete, downloadFile } from '../lib/api';
 import { getFileIcon, formatBytes, formatDate } from '../lib/utils';
 import {
   ChevronRight, Home, Upload, FolderPlus, FilePlus, RefreshCw, Download,
@@ -769,7 +769,7 @@ export default function FileManager() {
             <CtxBtn icon={Code2} label="Edit" onClick={() => { openFileInEditor(contextMenu.item); setContextMenu(null); }} />
           )}
           {!contextMenu.item.isDirectory && (
-            <CtxBtn icon={Download} label="Download" onClick={() => { window.open(downloadUrl(contextMenu.item.path)); setContextMenu(null); }} />
+            <CtxBtn icon={Download} label="Download" onClick={() => { const p = contextMenu.item.path; setContextMenu(null); downloadFile(p).catch((e: any) => alert(e.message || 'Download failed')); }} />
           )}
           <CtxBtn icon={Edit2} label="Rename" onClick={() => {
             setRenaming(contextMenu.item.path);

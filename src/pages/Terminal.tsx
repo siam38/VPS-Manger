@@ -127,11 +127,11 @@ export default function Terminal() {
       if (res.success) {
         setTabs(prev => prev.map(t => t.id === tabId ? { ...t, terminalId: res.terminalId } : t));
         
-        term.onData(data => {
+        term.onData((data: string) => {
           socket.emit('terminal:input', { terminalId: res.terminalId, input: data });
         });
 
-        term.onResize(({ cols, rows }) => {
+        term.onResize(({ cols, rows }: { cols: number; rows: number }) => {
           socket.emit('terminal:resize', { terminalId: res.terminalId, cols, rows });
         });
 
