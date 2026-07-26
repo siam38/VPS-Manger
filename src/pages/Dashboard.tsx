@@ -1,13 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { apiGet } from '../lib/api';
+import { apiGet, apiPost } from '../lib/api';
 import { getSocket } from '../lib/socket';
 import { formatBytes, formatUptime } from '../lib/utils';
-import { 
-  Cpu, MemoryStick, HardDrive, Network, Clock, Server, 
-  Zap, Trash2, RotateCcw, Shield, Boxes, RefreshCw,
-  Wifi, X, ScrollText, Container, Heart
+import {
+  Cpu, MemoryStick, HardDrive, Clock, X, RotateCcw, Trash2,
+  RefreshCw, ScrollText, Wifi, ArrowDown, ArrowUp,
 } from 'lucide-react';
-import { apiPost } from '../lib/api';
 
 interface Stats {
   cpu: number;
@@ -32,6 +30,17 @@ interface SystemInfo {
 }
 
 const HISTORY_SIZE = 60;
+const WINDOW_LABEL = 'last 2 min';
+
+/** Thresholds are the only thing allowed to introduce colour. */
+function level(pct: number): 'ok' | 'warn' | 'bad' {
+  if (pct >= 90) return 'bad';
+  if (pct >= 70) return 'warn';
+  return 'ok';
+}
+
+const BAR = { ok: 'bg-accent', warn: 'bg-warning', bad: 'bg-danger' };
+const TEXT = { ok: 'text-ink', warn: 'text-warning', bad: 'text-danger' };
 
 export default function Dashboard() {
   const [info, setInfo] = useState<SystemInfo | null>(null);
@@ -45,110 +54,120 @@ export default function Dashboard() {
 
   useEffect(() => {
     apiGet<SystemInfo>('/api/system/info').then(setInfo).catch(console.error);
-    
     const socket = getSocket();
     socket.emit('stats:subscribe');
-    
     socket.on('stats:update', (data: Stats) => {
       setStats(data);
       setCpuHistory(prev => [...prev.slice(-(HISTORY_SIZE - 1)), data.cpu]);
       setMemHistory(prev => [...prev.slice(-(HISTORY_SIZE - 1)), data.memory.percentage]);
-      
       if (prevNet.current) {
-        const rxRate = Math.max(0, data.network.rx - prevNet.current.rx) / 2;
-        const txRate = Math.max(0, data.network.tx - prevNet.current.tx) / 2;
-        setNetHistory(prev => [...prev.slice(-(HISTORY_SIZE - 1)), { rx: rxRate, tx: txRate }]);
+        const rx = Math.max(0, data.network.rx - prevNet.current.rx) / 2;
+        const tx = Math.max(0, data.network.tx - prevNet.current.tx) / 2;
+        setNetHistory(prev => [...prev.slice(-(HISTORY_SIZE - 1)), { rx, tx }]);
       }
       prevNet.current = data.network;
     });
-
     return () => {
       socket.emit('stats:unsubscribe');
       socket.off('stats:update');
     };
   }, []);
 
-  const doAction = async (action: string, label: string, danger: boolean = false) => {
-    if (danger && !confirm(`Are you sure you want to ${label}? This action may affect system stability.`)) {
-      return;
-    }
+  const doAction = async (action: string, label: string, danger = false) => {
+    if (danger && !confirm(`${label}? This may interrupt running services.`)) return;
     setActionLoading(action);
     try {
-      const res = await apiPost<{ success: boolean; message: string; output?: string }>(`/api/system/action/${action}`);
-      if (res.output) {
-        setOutputModal({ title: label, output: res.output });
-      }
+      const res = await apiPost<{ success: boolean; message: string; output?: string }>(
+        `/api/system/action/${action}`
+      );
+      if (res.output) setOutputModal({ title: label, output: res.output });
     } catch (e: any) {
-      setOutputModal({ title: `Error: ${label}`, output: e.message });
+      setOutputModal({ title: label, output: e.message });
     }
     setActionLoading(null);
   };
 
+  const load = stats?.loadAvg?.[0];
+  const loadPerCore = load != null && info?.cpuCount ? load / info.cpuCount : null;
+
   return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-6 animate-fade-in">
-      {/* Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <MetricCard
-          icon={Cpu} label="CPU" color="teal"
-          value={`${(stats?.cpu ?? 0).toFixed(1)}%`}
-          percentage={stats?.cpu ?? 0}
-        />
-        <MetricCard
-          icon={MemoryStick} label="Memory" color="cyan"
-          value={stats ? formatBytes(stats.memory.used) : '\u2014'}
-          sub={stats ? `/ ${formatBytes(stats.memory.total)}` : ''}
-          percentage={stats?.memory.percentage ?? 0}
-        />
-        <MetricCard
-          icon={HardDrive} label="Disk" color="orange"
-          value={stats?.disk ? formatBytes(stats.disk.used) : '\u2014'}
-          sub={stats?.disk ? `/ ${formatBytes(stats.disk.total)}` : ''}
-          percentage={stats?.disk?.percentage ?? 0}
-        />
-        <MetricCard
-          icon={Clock} label="Uptime" color="rose"
-          value={info ? formatUptime(info.uptime) : '\u2014'}
-        />
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-        <ChartCard title="CPU Usage" data={cpuHistory} color="#14b8a6" max={100} suffix="%" />
-        <ChartCard title="Memory Usage" data={memHistory} color="#06b6d4" max={100} suffix="%" />
-      </div>
-
-      {/* Network & Info */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-        <NetworkCard history={netHistory} />
-        <div className="space-y-3 md:space-y-4">
-          <InfoCard info={info} stats={stats} />
-          <QuickActions onAction={doAction} loading={actionLoading} />
+    <div className="p-4 md:p-6 pb-10 max-w-[1400px] mx-auto">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-sub">
+            {info ? <span className="font-mono">{info.hostname}</span> : 'Connecting\u2026'}
+            {info && <> &middot; up {formatUptime(info.uptime)}</>}
+          </p>
         </div>
+        <span className="pill pill-ok">
+          <span className="w-1.5 h-1.5 rounded-full bg-success" />
+          Live
+        </span>
       </div>
 
-      {/* Dashboard Footer */}
-      <div className="text-center py-4 border-t border-dark-700/50">
-        <p className="text-[11px] text-subtle flex items-center justify-center gap-1.5">
-          Made by <span className="text-dark-300 font-semibold">Siam</span> with <Heart className="w-3 h-3 text-rose-400 fill-rose-400 animate-pulse" /> 
-          <span className="text-dark-600 mx-1">•</span>
-          <span className="text-accent font-medium">VPS Manager v3.1</span>
-          <span className="text-dark-600 mx-1">•</span>
-          <span className="text-subtle">🦊</span>
-        </p>
+      {/* Metrics. Neutral by default: colour appears only past a threshold. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <Metric
+          icon={Cpu} label="CPU"
+          value={stats ? `${stats.cpu.toFixed(1)}%` : '\u2014'}
+          sub={info ? `${info.cpuCount} cores` : undefined}
+          pct={stats?.cpu ?? 0}
+        />
+        <Metric
+          icon={MemoryStick} label="Memory"
+          value={stats ? `${stats.memory.percentage.toFixed(1)}%` : '\u2014'}
+          sub={stats ? `${formatBytes(stats.memory.used)} of ${formatBytes(stats.memory.total)}` : undefined}
+          pct={stats?.memory.percentage ?? 0}
+        />
+        <Metric
+          icon={HardDrive} label="Disk"
+          value={stats?.disk ? `${stats.disk.percentage.toFixed(1)}%` : '\u2014'}
+          sub={stats?.disk ? `${formatBytes(stats.disk.used)} of ${formatBytes(stats.disk.total)}` : undefined}
+          pct={stats?.disk?.percentage ?? 0}
+        />
+        <Metric
+          icon={Clock} label="Load avg"
+          value={load != null ? load.toFixed(2) : '\u2014'}
+          sub={info ? `across ${info.cpuCount} cores` : undefined}
+          pct={loadPerCore != null ? loadPerCore * 100 : 0}
+        />
       </div>
 
-      {/* Output Modal */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+        <Chart title="CPU" data={cpuHistory} suffix="%" />
+        <Chart title="Memory" data={memHistory} suffix="%" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+        <NetworkCard history={netHistory} />
+        <SystemInfoCard info={info} stats={stats} />
+      </div>
+
+      <QuickActions onAction={doAction} loading={actionLoading} />
+
       {outputModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setOutputModal(null)}>
-          <div className="bg-dark-800 border border-dark-600 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-dark-700">
-              <h3 className="text-sm font-semibold text-white">{outputModal.title}</h3>
-              <button onClick={() => setOutputModal(null)} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70"
+          onClick={() => setOutputModal(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={outputModal.title}
+        >
+          <div
+            className="bg-surface border border-line rounded-modal w-full max-w-2xl max-h-[80vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="card-head">
+              <h2 className="card-title">{outputModal.title}</h2>
+              <button onClick={() => setOutputModal(null)} className="btn-icon" aria-label="Close">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="flex-1 overflow-auto p-4">
-              <pre className="font-mono text-[11px] text-dark-200 whitespace-pre-wrap break-all leading-relaxed">{outputModal.output}</pre>
+              <pre className="font-mono text-meta text-muted whitespace-pre-wrap break-all">
+                {outputModal.output}
+              </pre>
             </div>
           </div>
         </div>
@@ -157,196 +176,262 @@ export default function Dashboard() {
   );
 }
 
-// ─── Metric Card ───
-function MetricCard({ icon: Icon, label, color, value, sub, percentage }: {
-  icon: any; label: string; color: string; value: string; sub?: string;
-  percentage?: number;
+function Metric({ icon: Icon, label, value, sub, pct }: {
+  icon: any; label: string; value: string; sub?: string; pct: number;
 }) {
-  const colorMap: Record<string, string> = {
-    teal: 'from-teal-500/15 via-teal-500/5 to-transparent border-teal-500/20',
-    cyan: 'from-cyan-500/15 via-cyan-500/5 to-transparent border-cyan-500/20',
-    orange: 'from-orange-500/15 via-orange-500/5 to-transparent border-orange-500/20',
-    rose: 'from-rose-500/15 via-rose-500/5 to-transparent border-rose-500/20',
-  };
-  const iconColor: Record<string, string> = {
-    teal: 'text-teal-400', cyan: 'text-cyan-400', orange: 'text-orange-400', rose: 'text-rose-400',
-  };
-  const barColor: Record<string, string> = {
-    teal: 'bg-gradient-to-r from-teal-600 to-teal-400', 
-    cyan: 'bg-gradient-to-r from-cyan-600 to-cyan-400', 
-    orange: 'bg-gradient-to-r from-orange-600 to-orange-400', 
-    rose: 'bg-gradient-to-r from-rose-600 to-rose-400',
-  };
-  const glowColor: Record<string, string> = {
-    teal: 'shadow-teal-500/10', cyan: 'shadow-cyan-500/10', orange: 'shadow-orange-500/10', rose: 'shadow-rose-500/10',
-  };
-
+  const lv = level(pct);
   return (
-    <div className={`bg-gradient-to-br ${colorMap[color]} backdrop-blur-sm border rounded-2xl p-3.5 md:p-4 relative overflow-hidden shadow-lg ${glowColor[color]}`}>
-      <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-gradient-to-br from-white/5 to-transparent blur-2xl" />
-      <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-2">
-          <div className={`p-1.5 rounded-lg bg-white/5 ${iconColor[color]}`}>
-            <Icon className="w-3.5 h-3.5" />
-          </div>
-          <span className="text-[11px] text-dark-300 font-medium uppercase tracking-wider">{label}</span>
-        </div>
-        <div className="flex items-baseline gap-1">
-          <span className="text-xl md:text-2xl font-bold text-white tracking-tight">{value}</span>
-          {sub && <span className="text-[11px] text-muted">{sub}</span>}
-        </div>
-        {percentage !== undefined && (
-          <div className="mt-2.5 h-1.5 bg-dark-700/60 rounded-full overflow-hidden">
-            <div className={`h-full ${barColor[color]} rounded-full transition-all duration-700 ease-out`}
-                 style={{ width: `${Math.min(100, percentage)}%` }} />
-          </div>
-        )}
+    <div className="card p-3.5">
+      <div className="flex items-center gap-1.5 mb-2">
+        <Icon className="w-3.5 h-3.5 text-muted shrink-0" />
+        <span className="eyebrow">{label}</span>
+      </div>
+      <div className={`text-metric font-semibold tabular ${TEXT[lv]}`}>{value}</div>
+      <div className="text-label text-muted mt-0.5 h-4 truncate tabular">{sub ?? ''}</div>
+      <div className="mt-2.5 h-1 bg-raised rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${BAR[lv]}`}
+          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+        />
       </div>
     </div>
   );
 }
 
-// ─── Mini Chart ───
-function ChartCard({ title, data, color, max, suffix }: {
-  title: string; data: number[]; color: string; max: number; suffix: string;
-}) {
-  const h = 120;
-  const w = 400;
-  const padded = data.length < 2 ? [0, 0] : data;
-  const points = padded.map((v, i) => {
-    const x = (i / Math.max(1, padded.length - 1)) * w;
-    const y = h - (Math.min(v, max) / max) * (h - 10) - 5;
-    return `${x},${y}`;
-  }).join(' ');
-  const area = `0,${h} ${points} ${w},${h}`;
-  const current = data.length > 0 ? data[data.length - 1] : 0;
+/**
+ * Autoscales to a window around the data itself rather than 0-100, so a
+ * value parked at 27% renders as a readable trace instead of a flat slab.
+ */
+function Chart({ title, data, suffix }: { title: string; data: number[]; suffix: string }) {
+  const w = 400, h = 96, padY = 14;
+  const current = data.length ? data[data.length - 1] : 0;
+  const peak = data.length ? Math.max(...data) : 0;
+  const low = data.length ? Math.min(...data) : 0;
+  // Keep at least 8 points of span so small fluctuations stay visible.
+  const span = Math.max(4, (peak - low) * 2.2);
+  const mid = (peak + low) / 2;
+  const lo = Math.max(0, mid - span / 2);
+  const hi = Math.min(100, lo + span);
+  const flat = peak - low < 0.05;
+  const yOf = (v: number) =>
+    h - padY - ((Math.min(Math.max(v, lo), hi) - lo) / (hi - lo || 1)) * (h - padY * 2);
+  // Inset horizontally so the stroke isn't half-clipped by the card edge.
+  const padX = 10;
+  const pts = (data.length < 2 ? [current, current] : data)
+    .map((v, i, a) => `${(padX + (i / Math.max(1, a.length - 1)) * (w - padX * 2)).toFixed(1)},${yOf(v).toFixed(1)}`)
+    .join(' ');
+  const gid = `grad-${title}`;
 
   return (
-    <div className="bg-gradient-to-br from-dark-800 to-dark-800/80 backdrop-blur-sm border border-dark-700/80 rounded-2xl p-4 overflow-hidden shadow-lg">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-dark-200">{title}</h3>
-        <span className="text-lg font-bold text-white">{current.toFixed(1)}{suffix}</span>
+    <div className="card">
+      <div className="card-head max-sm:h-auto max-sm:py-2.5 max-sm:flex-col max-sm:items-start max-sm:gap-0.5">
+        <h2 className="card-title">{title}</h2>
+        <div className="flex items-baseline gap-2">
+          <span className="text-label text-muted">{WINDOW_LABEL}</span>
+          <span className="text-title font-semibold text-ink tabular">
+            {current.toFixed(1)}{suffix}
+          </span>
+        </div>
       </div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-24 md:h-28">
-        <defs>
-          <linearGradient id={`g-${title}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {[25, 50, 75].map(v => (
-          <line key={v} x1="0" y1={h - (v / max) * (h - 10) - 5} x2={w} y2={h - (v / max) * (h - 10) - 5}
-                stroke="#1a2b2a" strokeWidth="1" />
-        ))}
-        <polygon points={area} fill={`url(#g-${title})`} />
-        <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      </svg>
+      <div className="px-3 pt-3 pb-3">
+        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-16" preserveAspectRatio="none" role="img"
+             aria-label={`${title} ${WINDOW_LABEL}, currently ${current.toFixed(1)}${suffix}`}>
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {/* Midline gives the trace a reference to be read against. */}
+          <line x1="0" y1={h / 2} x2={w} y2={h / 2} stroke="#1e2c2a" strokeWidth="1"
+                vectorEffect="non-scaling-stroke" />
+          <polygon points={`0,${h} ${pts} ${w},${h}`} fill={`url(#${gid})`} />
+          <polyline points={pts} fill="none" stroke="#14b8a6" strokeWidth="1.75"
+                    strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        </svg>
+        <div className="flex justify-between text-label text-muted mt-1.5 tabular">
+          <span>{lo.toFixed(0)}–{hi.toFixed(0)}{suffix} range</span>
+          <span>{flat ? `steady at ${current.toFixed(1)}${suffix}` : `low ${low.toFixed(1)} · peak ${peak.toFixed(1)}${suffix}`}</span>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── Network Card ───
 function NetworkCard({ history }: { history: { rx: number; tx: number }[] }) {
-  const current = history.length > 0 ? history[history.length - 1] : { rx: 0, tx: 0 };
-  const maxVal = Math.max(1, ...history.map(h => Math.max(h.rx, h.tx)));
-  const h = 120, w = 400;
-
-  const makePoints = (key: 'rx' | 'tx') => {
-    const data = history.length < 2 ? [{ rx: 0, tx: 0 }, { rx: 0, tx: 0 }] : history;
-    return data.map((v, i) => {
-      const x = (i / Math.max(1, data.length - 1)) * w;
-      const y = h - (Math.min(v[key], maxVal) / maxVal) * (h - 10) - 5;
-      return `${x},${y}`;
-    }).join(' ');
-  };
+  const cur = history.length ? history[history.length - 1] : { rx: 0, tx: 0 };
+  const max = Math.max(512, ...history.map(p => Math.max(p.rx, p.tx)));
+  const w = 400, h = 96, padY = 12;
+  const line = (k: 'rx' | 'tx') =>
+    (history.length < 2 ? [{ rx: 0, tx: 0 }, { rx: 0, tx: 0 }] : history)
+      .map((v, i, a) => {
+        const x = 10 + (i / Math.max(1, a.length - 1)) * (w - 20);
+        const y = h - padY - (Math.min(v[k], max) / max) * (h - padY * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
 
   return (
-    <div className="bg-gradient-to-br from-dark-800 to-dark-800/80 backdrop-blur-sm border border-dark-700/80 rounded-2xl p-4 overflow-hidden shadow-lg">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-dark-200 flex items-center gap-2">
-          <Network className="w-4 h-4 text-teal-400" /> Network
-        </h3>
-        <div className="flex gap-4 text-xs">
-          <span className="text-teal-400">&darr; {formatBytes(current.rx)}/s</span>
-          <span className="text-orange-400">&uarr; {formatBytes(current.tx)}/s</span>
+    <div className="card">
+      <div className="card-head">
+        <h2 className="card-title">Network</h2>
+        <span className="text-label text-muted">{WINDOW_LABEL}</span>
+      </div>
+      <div className="px-3 pt-3 pb-3">
+        {/* Rates are the content of this card, so they lead. */}
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1 text-label text-muted">
+              <ArrowDown className="w-3 h-3 shrink-0" /> Download
+            </div>
+            <div className="text-title font-semibold text-ink tabular truncate">{formatBytes(cur.rx)}/s</div>
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1 text-label text-muted">
+              <ArrowUp className="w-3 h-3 shrink-0" /> Upload
+            </div>
+            <div className="text-title font-semibold text-ink tabular truncate">{formatBytes(cur.tx)}/s</div>
+          </div>
+        </div>
+        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-16" preserveAspectRatio="none" role="img"
+             aria-label={`Network throughput, ${WINDOW_LABEL}`}>
+          <line x1="0" y1={h / 2} x2={w} y2={h / 2} stroke="#1e2c2a" strokeWidth="1"
+                vectorEffect="non-scaling-stroke" />
+          <polyline points={line('rx')} fill="none" stroke="#14b8a6" strokeWidth="1.75"
+                    strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          <polyline points={line('tx')} fill="none" stroke="#06b6d4" strokeWidth="1.75"
+                    strokeLinejoin="round" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+        </svg>
+        <div className="flex gap-4 text-label text-muted mt-1">
+          <span className="flex items-center gap-1.5">
+            <svg width="14" height="3" aria-hidden="true"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke="#14b8a6" strokeWidth="2" /></svg>
+            down
+          </span>
+          <span className="flex items-center gap-1.5">
+            <svg width="14" height="3" aria-hidden="true"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke="#06b6d4" strokeWidth="2" strokeDasharray="3 2" /></svg>
+            up
+          </span>
+          <span className="ml-auto tabular">0 – {formatBytes(max)}/s</span>
         </div>
       </div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-24 md:h-28">
-        {[25, 50, 75].map(v => (
-          <line key={v} x1="0" y1={h - (v / 100) * (h - 10) - 5} x2={w} y2={h - (v / 100) * (h - 10) - 5}
-                stroke="#1a2b2a" strokeWidth="1" />
-        ))}
-        <polyline points={makePoints('rx')} fill="none" stroke="#14b8a6" strokeWidth="2" strokeLinejoin="round" opacity="0.8" />
-        <polyline points={makePoints('tx')} fill="none" stroke="#f97316" strokeWidth="2" strokeLinejoin="round" opacity="0.8" />
-      </svg>
     </div>
   );
 }
 
-// ─── Info Card ───
-function InfoCard({ info, stats }: { info: SystemInfo | null; stats: Stats | null }) {
-  if (!info) return null;
-  const items = [
-    { label: 'Hostname', value: info.hostname },
-    { label: 'OS', value: info.platform },
-    { label: 'CPU', value: `${info.cpuModel} (${info.cpuCount} cores)` },
-    { label: 'IP', value: info.ip },
-    { label: 'Load Avg', value: stats?.loadAvg?.map(v => v.toFixed(2)).join(', ') || '\u2014' },
+function SystemInfoCard({ info, stats }: { info: SystemInfo | null; stats: Stats | null }) {
+  if (!info) {
+    return (
+      <div className="card">
+        <div className="card-head"><h2 className="card-title">System</h2></div>
+        <div className="p-4 space-y-2" aria-busy="true">
+          {[0, 1, 2, 3, 4].map(i => <div key={i} className="h-4 bg-raised rounded animate-pulse" />)}
+        </div>
+      </div>
+    );
+  }
+
+  const load = stats?.loadAvg;
+  const perCore = load && info.cpuCount ? load[0] / info.cpuCount : 0;
+  const loadLv = level(perCore * 100);
+
+  const rows: { k: string; v: React.ReactNode }[] = [
+    { k: 'IP address', v: info.ip },
+    { k: 'Platform', v: `${info.platform} (${info.arch})` },
+    { k: 'Cores', v: String(info.cpuCount) },
+    {
+      k: 'Load avg',
+      v: load
+        ? <span className={loadLv === 'ok' ? '' : TEXT[loadLv]}>
+            {load.map(v => v.toFixed(2)).join('  ')}
+          </span>
+        : '\u2014',
+    },
   ];
 
   return (
-    <div className="bg-gradient-to-br from-dark-800 to-dark-800/80 backdrop-blur-sm border border-dark-700/80 rounded-2xl p-4 shadow-lg">
-      <h3 className="text-sm font-medium text-dark-200 mb-3 flex items-center gap-2">
-        <Server className="w-4 h-4 text-accent" /> System Info
-      </h3>
-      <div className="space-y-2">
-        {items.map(({ label, value }) => (
-          <div key={label} className="flex justify-between text-xs">
-            <span className="text-muted">{label}</span>
-            <span className="text-dark-200 text-right truncate ml-2 max-w-[200px]">{value}</span>
+    <div className="card">
+      <div className="card-head"><h2 className="card-title">System</h2></div>
+      <div>
+        {rows.map(({ k, v }) => (
+          <div key={k} className="row">
+            <span className="row-key">{k}</span>
+            <span className="row-val">{v}</span>
           </div>
         ))}
+        <div className="px-4 py-3 border-t border-line/70">
+          <div className="row-key mb-1">Processor</div>
+          <div className="text-meta text-ink font-mono leading-snug">{info.cpuModel}</div>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Quick Actions ───
-function QuickActions({ onAction, loading }: { onAction: (action: string, label: string, danger?: boolean) => void; loading: string | null }) {
-  const actions = [
-    { id: 'clear-cache', label: 'Clear Cache', icon: Trash2, color: 'text-orange-400', danger: true },
-    { id: 'restart-nginx', label: 'Restart Nginx', icon: RotateCcw, color: 'text-cyan-400', danger: true },
-    { id: 'restart-ssh', label: 'Restart SSH', icon: Shield, color: 'text-teal-400', danger: true },
-    { id: 'restart-pm2', label: 'Restart PM2 All', icon: Boxes, color: 'text-violet-400', danger: true },
-    { id: 'system-update', label: 'System Update', icon: RefreshCw, color: 'text-sky-400', danger: false },
-    { id: 'disk-usage', label: 'Disk Usage', icon: HardDrive, color: 'text-amber-400', danger: false },
-    { id: 'system-logs', label: 'System Logs', icon: ScrollText, color: 'text-rose-400', danger: false },
-    { id: 'restart-docker', label: 'Restart Docker', icon: Container, color: 'text-blue-400', danger: true },
-    { id: 'restart-openclaw', label: 'Restart OpenClaw', icon: Zap, color: 'text-emerald-400', danger: true },
-    { id: 'network-info', label: 'Network Info', icon: Wifi, color: 'text-teal-300', danger: false },
-    { id: 'clear-tmp', label: 'Clear Tmp Files', icon: Trash2, color: 'text-red-400', danger: true },
+/**
+ * Grouped by consequence. Previously eleven identical pills mixed
+ * read-only lookups with service restarts at the same visual weight.
+ */
+function QuickActions({ onAction, loading }: {
+  onAction: (action: string, label: string, danger?: boolean) => void;
+  loading: string | null;
+}) {
+  const groups = [
+    {
+      title: 'Inspect', hint: 'Read-only',
+      items: [
+        { id: 'disk-usage', label: 'Disk usage', icon: HardDrive },
+        { id: 'system-logs', label: 'System logs', icon: ScrollText },
+        { id: 'network-info', label: 'Network info', icon: Wifi },
+      ],
+      danger: false,
+    },
+    {
+      title: 'Maintain', hint: 'Safe to run',
+      items: [
+        { id: 'system-update', label: 'System update', icon: RefreshCw },
+        { id: 'clear-cache', label: 'Clear cache', icon: Trash2 },
+        { id: 'clear-tmp', label: 'Clear temp files', icon: Trash2 },
+      ],
+      danger: false,
+    },
+    {
+      title: 'Restart services', hint: 'Interrupts traffic',
+      items: [
+        { id: 'restart-nginx', label: 'Nginx', icon: RotateCcw },
+        { id: 'restart-ssh', label: 'SSH', icon: RotateCcw },
+        { id: 'restart-pm2', label: 'PM2 apps', icon: RotateCcw },
+        { id: 'restart-docker', label: 'Docker', icon: RotateCcw },
+        { id: 'restart-openclaw', label: 'OpenClaw', icon: RotateCcw },
+      ],
+      danger: true,
+    },
   ];
 
   return (
-    <div className="bg-gradient-to-br from-dark-800 to-dark-800/80 backdrop-blur-sm border border-dark-700/80 rounded-2xl p-4 shadow-lg">
-      <h3 className="text-sm font-medium text-dark-200 mb-3 flex items-center gap-2">
-        <Zap className="w-4 h-4 text-orange-400" /> Quick Actions
-      </h3>
-      <div className="grid grid-cols-2 gap-1.5">
-        {actions.map(({ id, label, icon: Icon, color, danger }) => (
-          <button
-            key={id}
-            onClick={() => onAction(id, label, danger)}
-            disabled={loading === id}
-            className={`flex items-center gap-2 px-2.5 py-2 rounded-xl ${danger ? 'bg-red-500/5 hover:bg-red-500/10 border-red-500/20' : 'bg-dark-700/40 hover:bg-dark-700/80 border-transparent'} hover:border-dark-600 text-dark-200 text-[11px] transition disabled:opacity-50 border`}
-          >
-            {loading === id ? (
-              <div className="w-3.5 h-3.5 border border-dark-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-            ) : (
-              <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${color}`} />
-            )}
-            <span className="truncate">{label}</span>
-          </button>
+    <div className="card mt-3">
+      <div className="card-head"><h2 className="card-title">Actions</h2></div>
+      <div className="p-4 space-y-4">
+        {groups.map(g => (
+          <div key={g.title}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="eyebrow">{g.title}</span>
+              <span className="pill pill-neutral">{g.hint}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {g.items.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => onAction(id, label, g.danger)}
+                  disabled={loading === id}
+                  className={`btn btn-sm ${g.danger ? 'btn-danger' : 'btn-quiet'}`}
+                >
+                  {loading === id
+                    ? <span className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+                    : <Icon className="w-3.5 h-3.5 shrink-0" />}
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>

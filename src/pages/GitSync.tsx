@@ -347,7 +347,7 @@ export default function GitSync() {
         <div className="max-w-2xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-card bg-accent/10 border border-accent/20 mb-4">
               <Github className="w-8 h-8 text-accent" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Connect to GitHub</h1>
@@ -359,20 +359,20 @@ export default function GitSync() {
             {[1, 2, 3].map(s => (
               <React.Fragment key={s}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all
-                  ${setupStep > s ? 'bg-emerald-500 text-white' : setupStep === s ? 'bg-accent text-white' : 'bg-dark-700 text-subtle'}`}>
+                  ${setupStep > s ? 'bg-emerald-500 text-white' : setupStep === s ? 'bg-accent text-white' : 'bg-raised text-subtle'}`}>
                   {setupStep > s ? <CheckCircle className="w-4 h-4" /> : s}
                 </div>
-                {s < 3 && <div className={`flex-1 h-0.5 rounded transition-all ${setupStep > s ? 'bg-emerald-500' : 'bg-dark-700'}`} />}
+                {s < 3 && <div className={`flex-1 h-0.5 rounded transition-all ${setupStep > s ? 'bg-emerald-500' : 'bg-raised'}`} />}
               </React.Fragment>
             ))}
           </div>
 
           {/* Step 1: Git Identity */}
-          <div className={`mb-4 bg-dark-800 border rounded-xl overflow-hidden transition-all
-            ${setupStep === 1 ? 'border-accent/30' : setupStep > 1 ? 'border-emerald-500/30' : 'border-dark-700 opacity-50'}`}>
+          <div className={`mb-4 bg-surface border rounded-control overflow-hidden transition-all
+            ${setupStep === 1 ? 'border-accent/30' : setupStep > 1 ? 'border-emerald-500/30' : 'border-line opacity-50'}`}>
             <div className="flex items-center gap-3 px-5 py-4 cursor-pointer" onClick={() => setupStep >= 1 && setSetupStep(1)}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center
-                ${setupStep > 1 ? 'bg-emerald-500/10 text-emerald-400' : setupStep === 1 ? 'bg-accent/10 text-accent' : 'bg-dark-700 text-subtle'}`}>
+              <div className={`w-10 h-10 rounded-control flex items-center justify-center
+                ${setupStep > 1 ? 'bg-emerald-500/10 text-emerald-400' : setupStep === 1 ? 'bg-accent/10 text-accent' : 'bg-raised text-subtle'}`}>
                 <User className="w-5 h-5" />
               </div>
               <div className="flex-1">
@@ -382,13 +382,13 @@ export default function GitSync() {
               {setupStep > 1 && <CheckCircle className="w-5 h-5 text-emerald-400" />}
             </div>
             {setupStep === 1 && (
-              <div className="px-5 pb-5 border-t border-dark-700 pt-4 space-y-3">
+              <div className="px-5 pb-5 border-t border-line pt-4 space-y-3">
                 <div>
                   <label className="text-xs text-muted mb-1 block">Full Name</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle" />
                     <input value={setupName} onChange={e => setSetupName(e.target.value)} placeholder="Your name"
-                      className="w-full bg-dark-900 border border-dark-700 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
+                      className="w-full bg-canvas border border-line rounded-lg pl-10 pr-3 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
                   </div>
                 </div>
                 <div>
@@ -396,7 +396,7 @@ export default function GitSync() {
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle" />
                     <input value={setupEmail} onChange={e => setSetupEmail(e.target.value)} placeholder="your@email.com" type="email"
-                      className="w-full bg-dark-900 border border-dark-700 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
+                      className="w-full bg-canvas border border-line rounded-lg pl-10 pr-3 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
                   </div>
                 </div>
                 <button onClick={saveIdentity} disabled={setupBusy}
@@ -409,11 +409,11 @@ export default function GitSync() {
           </div>
 
           {/* Step 2: SSH Key */}
-          <div className={`mb-4 bg-dark-800 border rounded-xl overflow-hidden transition-all
-            ${setupStep === 2 ? 'border-accent/30' : setupStep > 2 ? 'border-emerald-500/30' : 'border-dark-700 opacity-50'}`}>
+          <div className={`mb-4 bg-surface border rounded-control overflow-hidden transition-all
+            ${setupStep === 2 ? 'border-accent/30' : setupStep > 2 ? 'border-emerald-500/30' : 'border-line opacity-50'}`}>
             <div className="flex items-center gap-3 px-5 py-4 cursor-pointer" onClick={() => setupStep >= 2 && setSetupStep(2)}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center
-                ${setupStep > 2 ? 'bg-emerald-500/10 text-emerald-400' : setupStep === 2 ? 'bg-accent/10 text-accent' : 'bg-dark-700 text-subtle'}`}>
+              <div className={`w-10 h-10 rounded-control flex items-center justify-center
+                ${setupStep > 2 ? 'bg-emerald-500/10 text-emerald-400' : setupStep === 2 ? 'bg-accent/10 text-accent' : 'bg-raised text-subtle'}`}>
                 <Key className="w-5 h-5" />
               </div>
               <div className="flex-1">
@@ -423,7 +423,7 @@ export default function GitSync() {
               {setupStep > 2 && <CheckCircle className="w-5 h-5 text-emerald-400" />}
             </div>
             {setupStep === 2 && (
-              <div className="px-5 pb-5 border-t border-dark-700 pt-4 space-y-4">
+              <div className="px-5 pb-5 border-t border-line pt-4 space-y-4">
                 {/* Access Mode Selector */}
                 {!(ghStatus.sshKey.exists && sshPublicKey) && (
                   <div className="space-y-3">
@@ -432,20 +432,20 @@ export default function GitSync() {
                       <button onClick={() => setAccessMode('full')}
                         className={`text-left p-3 rounded-lg border transition-all ${accessMode === 'full'
                           ? 'border-accent/40 bg-accent/5'
-                          : 'border-dark-700 bg-dark-900 hover:border-dark-600'}`}>
+                          : 'border-line bg-canvas hover:border-line'}`}>
                         <div className="flex items-center gap-2 mb-1">
                           <Github className={`w-4 h-4 ${accessMode === 'full' ? 'text-accent' : 'text-subtle'}`} />
-                          <span className={`text-sm font-medium ${accessMode === 'full' ? 'text-white' : 'text-dark-300'}`}>Full Account</span>
+                          <span className={`text-sm font-medium ${accessMode === 'full' ? 'text-white' : 'text-muted'}`}>Full Account</span>
                         </div>
                         <p className="text-[11px] text-subtle">Access all your repositories</p>
                       </button>
                       <button onClick={() => setAccessMode('deploy')}
                         className={`text-left p-3 rounded-lg border transition-all ${accessMode === 'deploy'
                           ? 'border-accent/40 bg-accent/5'
-                          : 'border-dark-700 bg-dark-900 hover:border-dark-600'}`}>
+                          : 'border-line bg-canvas hover:border-line'}`}>
                         <div className="flex items-center gap-2 mb-1">
                           <ShieldCheck className={`w-4 h-4 ${accessMode === 'deploy' ? 'text-accent' : 'text-subtle'}`} />
-                          <span className={`text-sm font-medium ${accessMode === 'deploy' ? 'text-white' : 'text-dark-300'}`}>Single Repo</span>
+                          <span className={`text-sm font-medium ${accessMode === 'deploy' ? 'text-white' : 'text-muted'}`}>Single Repo</span>
                         </div>
                         <p className="text-[11px] text-subtle">Deploy key for one repository</p>
                       </button>
@@ -454,7 +454,7 @@ export default function GitSync() {
                       <div>
                         <label className="text-xs text-muted mb-1 block">Repository (owner/repo)</label>
                         <input value={deployRepo} onChange={e => setDeployRepo(e.target.value)} placeholder="username/repo-name"
-                          className="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
+                          className="w-full bg-canvas border border-line rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
                       </div>
                     )}
                   </div>
@@ -464,12 +464,12 @@ export default function GitSync() {
                   <>
                     <div>
                       <label className="text-xs text-muted mb-1.5 block">Your SSH Public Key</label>
-                      <div className="bg-dark-900 border border-dark-700 rounded-lg p-3 font-mono text-xs text-dark-300 break-all max-h-24 overflow-y-auto select-all">
+                      <div className="bg-canvas border border-line rounded-lg p-3 font-mono text-xs text-muted break-all max-h-24 overflow-y-auto select-all">
                         {sshPublicKey}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={copyKey} className="px-3 py-2 bg-dark-700 hover:bg-dark-600 text-dark-200 text-xs rounded-lg transition flex items-center gap-1.5">
+                      <button onClick={copyKey} className="px-3 py-2 bg-raised hover:bg-raised text-ink text-xs rounded-lg transition flex items-center gap-1.5">
                         <Copy className="w-3.5 h-3.5" /> Copy Key
                       </button>
                       {accessMode === 'deploy' && deployRepo ? (
@@ -483,11 +483,11 @@ export default function GitSync() {
                           <ExternalLink className="w-3.5 h-3.5" /> Add to GitHub
                         </a>
                       )}
-                      <button onClick={() => generateKey(true)} className="px-3 py-2 bg-dark-700 hover:bg-dark-600 text-muted text-xs rounded-lg transition flex items-center gap-1.5">
+                      <button onClick={() => generateKey(true)} className="px-3 py-2 bg-raised hover:bg-raised text-muted text-xs rounded-lg transition flex items-center gap-1.5">
                         <RefreshCw className="w-3.5 h-3.5" /> Regenerate
                       </button>
                     </div>
-                    <div className="bg-dark-900/50 border border-dark-700 rounded-lg p-3 space-y-1.5">
+                    <div className="bg-canvas/50 border border-line rounded-lg p-3 space-y-1.5">
                       {accessMode === 'deploy' && deployRepo ? (
                         <>
                           <p className="text-xs text-muted font-medium">🔒 Deploy Key — single repo access</p>
@@ -529,11 +529,11 @@ export default function GitSync() {
           </div>
 
           {/* Step 3: Verify Connection */}
-          <div className={`mb-4 bg-dark-800 border rounded-xl overflow-hidden transition-all
-            ${setupStep === 3 ? 'border-accent/30' : 'border-dark-700 opacity-50'}`}>
+          <div className={`mb-4 bg-surface border rounded-control overflow-hidden transition-all
+            ${setupStep === 3 ? 'border-accent/30' : 'border-line opacity-50'}`}>
             <div className="flex items-center gap-3 px-5 py-4 cursor-pointer" onClick={() => setupStep >= 3 && setSetupStep(3)}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center
-                ${ghStatus.github.connected ? 'bg-emerald-500/10 text-emerald-400' : setupStep === 3 ? 'bg-accent/10 text-accent' : 'bg-dark-700 text-subtle'}`}>
+              <div className={`w-10 h-10 rounded-control flex items-center justify-center
+                ${ghStatus.github.connected ? 'bg-emerald-500/10 text-emerald-400' : setupStep === 3 ? 'bg-accent/10 text-accent' : 'bg-raised text-subtle'}`}>
                 <Wifi className="w-5 h-5" />
               </div>
               <div className="flex-1">
@@ -543,10 +543,10 @@ export default function GitSync() {
               {ghStatus.github.connected && <CheckCircle className="w-5 h-5 text-emerald-400" />}
             </div>
             {setupStep === 3 && (
-              <div className="px-5 pb-5 border-t border-dark-700 pt-4">
+              <div className="px-5 pb-5 border-t border-line pt-4">
                 {testResult?.connected || ghStatus.github.connected ? (
                   <div className="text-center py-6">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-card bg-emerald-500/10 border border-emerald-500/20 mb-4">
                       <CheckCircle className="w-8 h-8 text-emerald-400" />
                     </div>
                     <p className="text-white font-semibold mb-1">Connected to GitHub!</p>
@@ -558,13 +558,13 @@ export default function GitSync() {
                   </div>
                 ) : testResult && !testResult.connected ? (
                   <div className="text-center py-6">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 mb-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-card bg-red-500/10 border border-red-500/20 mb-4">
                       <XCircle className="w-8 h-8 text-red-400" />
                     </div>
                     <p className="text-white font-semibold mb-1">Connection Failed</p>
                     <p className="text-muted text-sm mb-2">Make sure you've added your SSH key to GitHub</p>
                     {testResult.error && (
-                      <pre className="bg-dark-900 rounded-lg p-2 text-xs text-red-400/70 font-mono mb-4 max-h-20 overflow-auto text-left">{testResult.error}</pre>
+                      <pre className="bg-canvas rounded-lg p-2 text-xs text-red-400/70 font-mono mb-4 max-h-20 overflow-auto text-left">{testResult.error}</pre>
                     )}
                     <div className="flex gap-2 justify-center">
                       <button onClick={testConnection} disabled={setupBusy}
@@ -572,7 +572,7 @@ export default function GitSync() {
                         {setupBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Try Again
                       </button>
                       <button onClick={() => setSetupStep(2)}
-                        className="px-4 py-2 bg-dark-700 hover:bg-dark-600 text-dark-300 text-sm rounded-lg transition">
+                        className="px-4 py-2 bg-raised hover:bg-raised text-muted text-sm rounded-lg transition">
                         ← Back to Key
                       </button>
                     </div>
@@ -614,12 +614,12 @@ export default function GitSync() {
       {/* Diff Modal */}
       {diffModal && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setDiffModal(null)}>
-          <div className="bg-dark-800 border border-dark-600 rounded-t-xl sm:rounded-xl w-full sm:max-w-3xl max-h-[85vh] sm:max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-dark-700">
+          <div className="bg-surface border border-line rounded-t-xl sm:rounded-control w-full sm:max-w-3xl max-h-[85vh] sm:max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-line">
               <span className="text-sm font-medium text-white">{diffModal.file}</span>
               <button onClick={() => setDiffModal(null)} className="text-muted hover:text-white"><X className="w-4 h-4" /></button>
             </div>
-            <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-dark-200 whitespace-pre">{diffModal.diff}</pre>
+            <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-ink whitespace-pre">{diffModal.diff}</pre>
           </div>
         </div>
       )}
@@ -627,8 +627,8 @@ export default function GitSync() {
       {/* Settings Modal */}
       {settingsOpen && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setSettingsOpen(false)}>
-          <div className="bg-dark-800 border border-dark-600 rounded-t-xl sm:rounded-xl w-full sm:max-w-lg max-h-[90vh] sm:max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-dark-700">
+          <div className="bg-surface border border-line rounded-t-xl sm:rounded-control w-full sm:max-w-lg max-h-[90vh] sm:max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <h2 className="text-white font-semibold text-base flex items-center gap-2"><Settings className="w-4 h-4 text-accent" /> GitHub Settings</h2>
               <button onClick={() => setSettingsOpen(false)} className="text-muted hover:text-white"><X className="w-4 h-4" /></button>
             </div>
@@ -638,9 +638,9 @@ export default function GitSync() {
                 <h3 className="text-white text-sm font-semibold mb-3 flex items-center gap-2"><User className="w-4 h-4 text-accent" /> Git Identity</h3>
                 <div className="space-y-2">
                   <input value={setupName} onChange={e => setSetupName(e.target.value)} placeholder="Name"
-                    className="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
+                    className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
                   <input value={setupEmail} onChange={e => setSetupEmail(e.target.value)} placeholder="Email"
-                    className="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
+                    className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
                   <button onClick={async () => {
                     const r = await api('/github/setup', { method: 'POST', body: JSON.stringify({ name: setupName.trim(), email: setupEmail.trim() }) });
                     if (r.success) showToast('Updated!', 'success'); else showToast('Failed: ' + r.error, 'error');
@@ -651,13 +651,13 @@ export default function GitSync() {
               </div>
 
               {/* SSH Key */}
-              <div className="border-t border-dark-700 pt-4">
+              <div className="border-t border-line pt-4">
                 <h3 className="text-white text-sm font-semibold mb-3 flex items-center gap-2"><Key className="w-4 h-4 text-accent" /> SSH Public Key</h3>
-                <div className="bg-dark-900 border border-dark-700 rounded-lg p-3 font-mono text-xs text-dark-300 break-all max-h-20 overflow-y-auto mb-2">
+                <div className="bg-canvas border border-line rounded-lg p-3 font-mono text-xs text-muted break-all max-h-20 overflow-y-auto mb-2">
                   {sshPublicKey || 'Loading...'}
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  <button onClick={copyKey} className="px-3 py-1.5 bg-dark-700 hover:bg-dark-600 text-dark-200 text-xs rounded-lg transition flex items-center gap-1.5">
+                  <button onClick={copyKey} className="px-3 py-1.5 bg-raised hover:bg-raised text-ink text-xs rounded-lg transition flex items-center gap-1.5">
                     <Copy className="w-3.5 h-3.5" /> Copy
                   </button>
                   <button onClick={testConnection} disabled={setupBusy}
@@ -668,14 +668,14 @@ export default function GitSync() {
               </div>
 
               {/* Clone */}
-              <div className="border-t border-dark-700 pt-4">
+              <div className="border-t border-line pt-4">
                 <h3 className="text-white text-sm font-semibold mb-3 flex items-center gap-2"><DownloadCloud className="w-4 h-4 text-accent" /> Clone Repository</h3>
                 <div className="space-y-2">
                   <input value={cloneUrl} onChange={e => setCloneUrl(e.target.value)} placeholder="git@github.com:user/repo.git"
-                    className="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
+                    className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
                   <input value={clonePath} onChange={e => setClonePath(e.target.value)} placeholder="/root/my-project"
-                    className="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
-                  <div className="bg-dark-900/50 border border-dark-700 rounded-lg p-2">
+                    className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
+                  <div className="bg-canvas/50 border border-line rounded-lg p-2">
                     <p className="text-[11px] text-subtle flex items-start gap-1.5">
                       <Info className="w-3 h-3 shrink-0 mt-0.5" />
                       Auto-sync will be DISABLED after clone. Enable it manually in the Sync Settings tab after verifying the connection.
@@ -702,13 +702,13 @@ export default function GitSync() {
       )}
 
       {/* Sidebar */}
-      <div className={`${mobileShowSidebar ? 'flex' : 'hidden'} lg:flex w-full lg:w-72 flex-shrink-0 bg-dark-800 border border-dark-700 rounded-xl flex-col overflow-hidden ${mobileShowSidebar && selected ? 'max-h-[50vh] lg:max-h-none' : ''}`}>
+      <div className={`${mobileShowSidebar ? 'flex' : 'hidden'} lg:flex w-full lg:w-72 flex-shrink-0 bg-surface border border-line rounded-control flex-col overflow-hidden ${mobileShowSidebar && selected ? 'max-h-[50vh] lg:max-h-none' : ''}`}>
         {/* GitHub status bar */}
         {ghStatus && ghStatus.github.connected && (
-          <div className="px-4 py-3 border-b border-dark-700 flex items-center gap-3">
+          <div className="px-4 py-3 border-b border-line flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-dark-200 truncate">Connected to GitHub</p>
+              <p className="text-xs font-medium text-ink truncate">Connected to GitHub</p>
               <p className="text-[11px] text-subtle truncate">@{ghStatus.github.username || 'unknown'}</p>
             </div>
             <button onClick={() => setSettingsOpen(true)} className="text-muted hover:text-white transition p-1" title="Settings">
@@ -717,8 +717,8 @@ export default function GitSync() {
           </div>
         )}
 
-        <div className="flex items-center justify-between px-4 py-3 border-b border-dark-700">
-          <div className="flex items-center gap-2 text-dark-300 text-sm font-medium"><FolderGit2 className="w-4 h-4" /> Repositories</div>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+          <div className="flex items-center gap-2 text-muted text-sm font-medium"><FolderGit2 className="w-4 h-4" /> Repositories</div>
           <button onClick={loadRepos} className="text-muted hover:text-white transition"><RefreshCw className="w-3.5 h-3.5" /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -727,11 +727,11 @@ export default function GitSync() {
             return (
               <button key={r.path} onClick={() => selectRepo(r.path)}
                 className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm
-                  ${selected === r.path ? 'bg-accent/10 border border-accent/20 text-white' : 'text-dark-300 hover:bg-dark-700/50 border border-transparent'}`}>
+                  ${selected === r.path ? 'bg-accent/10 border border-accent/20 text-white' : 'text-muted hover:bg-raised border border-transparent'}`}>
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="font-medium flex items-center gap-1.5"><GitBranch className="w-3.5 h-3.5" />{r.path.split('/').pop()}</span>
                   {<span onClick={async (e) => { e.stopPropagation(); const newConf = { ...(syncConfigs[r.path] || defaultSync), enabled: !syncing }; const res = await api('/sync/config', { method: 'POST', body: JSON.stringify({ repo: r.path, ...newConf }) }); if (!res.error) { showToast(newConf.enabled ? 'Sync enabled' : 'Sync disabled', 'success'); loadRepos(); if (selected === r.path) setSyncConf(newConf); } }}
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition-all ${syncing ? 'text-emerald-400 bg-emerald-400/10 hover:bg-red-400/10 hover:text-red-400' : 'text-subtle bg-dark-700 hover:bg-emerald-400/10 hover:text-emerald-400'}`}>
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition-all ${syncing ? 'text-emerald-400 bg-emerald-400/10 hover:bg-red-400/10 hover:text-red-400' : 'text-subtle bg-raised hover:bg-emerald-400/10 hover:text-emerald-400'}`}>
                     {syncing ? <><RefreshCw className="w-2.5 h-2.5 animate-spin" />sync</> : 'off'}</span>}
                 </div>
                 <div className="flex justify-between text-[11px] text-subtle">
@@ -741,9 +741,17 @@ export default function GitSync() {
               </button>
             );
           })}
-          {repos.length === 0 && <div className="text-subtle text-sm text-center py-8">No repos found</div>}
+          {repos.length === 0 && (
+            <div className="empty py-10">
+              <GitBranch className="w-7 h-7 text-muted mb-1" />
+              <p className="empty-title">No repositories</p>
+              <p className="empty-sub text-meta">
+                Connect a GitHub account or add a repo on disk to start syncing.
+              </p>
+            </div>
+          )}
         </div>
-        <div className="px-4 py-3 border-t border-dark-700">
+        <div className="px-4 py-3 border-t border-line">
           <div className="flex items-center gap-2 text-subtle text-[11px] mb-1"><Activity className="w-3 h-3" /> Sync Daemon</div>
           {(() => { const activeCount = Object.values(syncConfigs).filter(c => c.enabled).length;
             return syncStatus.running ? (
@@ -758,14 +766,19 @@ export default function GitSync() {
       {/* Main */}
       <div className={`flex-1 flex flex-col min-w-0 overflow-hidden ${!mobileShowSidebar ? 'flex' : 'hidden lg:flex'}`}>
         {!selected ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-subtle gap-3">
-            <GitBranch className="w-12 h-12 opacity-30" />
-            <p className="text-sm">Select a repository</p>
+          <div className="flex-1 empty">
+            <GitBranch className="w-9 h-9 text-muted mb-1" />
+            <p className="empty-title">{repos.length === 0 ? 'Nothing to sync yet' : 'Select a repository'}</p>
+            <p className="empty-sub">
+              {repos.length === 0
+                ? 'Add a repository on the left, then pick it here to view status, commits and sync settings.'
+                : 'Pick a repository from the list to view its status, commits and sync settings.'}
+            </p>
           </div>
         ) : (
           <>
             {/* Info bar */}
-            <div className="bg-dark-800 border border-dark-700 rounded-xl px-4 py-3 mb-3">
+            <div className="bg-surface border border-line rounded-control px-4 py-3 mb-3">
               <div className="flex items-center gap-2 mb-1">
                 <button onClick={() => setMobileShowSidebar(true)} className="lg:hidden text-muted hover:text-white transition">
                   <span className="text-xs">← Repos</span>
@@ -781,11 +794,11 @@ export default function GitSync() {
             </div>
 
             {/* Tabs */}
-            <div className="flex bg-dark-800 border border-dark-700 rounded-xl overflow-hidden mb-3">
+            <div className="flex bg-surface border border-line rounded-control overflow-hidden mb-3">
               {(['changes', 'log', 'branches', 'tags', 'sync'] as const).map(t => (
                 <button key={t} onClick={() => setTab(t)}
                   className={`flex-1 py-2.5 text-xs font-medium transition-all
-                    ${tab === t ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-dark-700/50'}`}>
+                    ${tab === t ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-raised'}`}>
                   {t === 'changes' ? 'Changes' : t === 'log' ? 'History' : t === 'branches' ? 'Branches' : t === 'tags' ? 'Tags' : 'Auto-Sync'}
                 </button>
               ))}
@@ -796,17 +809,17 @@ export default function GitSync() {
               {tab === 'changes' && (
                 <>
                   <div className="flex gap-2 mb-3 flex-wrap">
-                    <button onClick={stageAll} className="px-3 py-1.5 bg-dark-700 hover:bg-dark-600 text-dark-200 text-xs rounded-lg transition flex items-center gap-1.5"><GitCommitHorizontal className="w-3.5 h-3.5" /> Stage All</button>
+                    <button onClick={stageAll} className="px-3 py-1.5 bg-raised hover:bg-raised text-ink text-xs rounded-lg transition flex items-center gap-1.5"><GitCommitHorizontal className="w-3.5 h-3.5" /> Stage All</button>
                     <button onClick={pull} className="px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent text-xs rounded-lg transition flex items-center gap-1.5 border border-accent/20"><Download className="w-3.5 h-3.5" /> Pull</button>
                     <button onClick={push} className="px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent text-xs rounded-lg transition flex items-center gap-1.5 border border-accent/20"><Upload className="w-3.5 h-3.5" /> Push</button>
                   </div>
-                  <div className="flex-1 bg-dark-800 border border-dark-700 rounded-xl overflow-y-auto">
+                  <div className="flex-1 bg-surface border border-line rounded-control overflow-y-auto">
                     {changes.length === 0 ? (
                       <div className="text-subtle text-sm text-center py-12">Working tree clean ✨</div>
                     ) : changes.map((f, i) => (
-                      <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-dark-700/50 last:border-0 text-sm">
+                      <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-line last:border-0 text-sm">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${statusColor(f.status)}`}>{statusLabel(f.status)}</span>
-                        <span className="flex-1 font-mono text-xs text-dark-200 truncate">{f.file}</span>
+                        <span className="flex-1 font-mono text-xs text-ink truncate">{f.file}</span>
                         <button onClick={() => viewDiff(f.file)} className="text-muted hover:text-accent transition"><Eye className="w-3.5 h-3.5" /></button>
                         <button onClick={() => discardFile(f.file)} className="text-muted hover:text-red-400 transition"><Undo2 className="w-3.5 h-3.5" /></button>
                       </div>
@@ -814,10 +827,10 @@ export default function GitSync() {
                   </div>
                   {changes.length > 0 && (
                     <div className="flex gap-2 mt-4">
-                      <button onClick={handleStash} className="px-3 py-2 bg-dark-700 hover:bg-dark-600 text-white text-sm rounded-lg transition flex items-center gap-2">
+                      <button onClick={handleStash} className="px-3 py-2 bg-raised hover:bg-raised text-white text-sm rounded-lg transition flex items-center gap-2">
                         <Archive className="w-4 h-4" /> Stash Changes
                       </button>
-                      <button onClick={handleUnstash} className="px-3 py-2 bg-dark-700 hover:bg-dark-600 text-white text-sm rounded-lg transition flex items-center gap-2">
+                      <button onClick={handleUnstash} className="px-3 py-2 bg-raised hover:bg-raised text-white text-sm rounded-lg transition flex items-center gap-2">
                         <ArchiveRestore className="w-4 h-4" /> Unstash
                       </button>
                     </div>
@@ -825,7 +838,7 @@ export default function GitSync() {
                   <div className="flex flex-col sm:flex-row gap-2 mt-3">
                     <input value={commitMsg} onChange={e => setCommitMsg(e.target.value)} placeholder="Commit message..."
                       onKeyDown={e => e.key === 'Enter' && commitAndPush()}
-                      className="flex-1 bg-dark-800 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
+                      className="flex-1 bg-surface border border-line rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:border-accent outline-none" />
                     <button onClick={commitAndPush} disabled={loading}
                       className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 disabled:opacity-50">
                       <GitCommitHorizontal className="w-4 h-4" /> {loading ? '...' : 'Commit & Push'}
@@ -835,11 +848,11 @@ export default function GitSync() {
               )}
 
               {tab === 'log' && (
-                <div className="flex-1 bg-dark-800 border border-dark-700 rounded-xl overflow-y-auto">
+                <div className="flex-1 bg-surface border border-line rounded-control overflow-y-auto">
                   {commits.map((c, i) => (
-                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-dark-700/50 last:border-0 text-sm">
+                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-line last:border-0 text-sm">
                       <span className="text-accent bg-accent/10 px-2 py-0.5 rounded text-[11px] font-mono flex-shrink-0">{c.hash?.substring(0, 7)}</span>
-                      <span className="flex-1 text-dark-200 text-xs truncate">{c.message}</span>
+                      <span className="flex-1 text-ink text-xs truncate">{c.message}</span>
                       <span className="text-subtle text-[11px] flex-shrink-0">{c.author} · {c.time}</span>
                     </div>
                   ))}
@@ -857,10 +870,10 @@ export default function GitSync() {
                   </div>
                   <div className="flex-1 overflow-y-auto">
                     {branches.map(b => (
-                      <div key={b.name} className="flex items-center justify-between p-3 bg-dark-800 border border-dark-700 rounded-lg mb-2">
+                      <div key={b.name} className="flex items-center justify-between p-3 bg-surface border border-line rounded-lg mb-2">
                         <div className="flex items-center gap-2">
                           <GitBranch className={`w-4 h-4 ${b.isCurrent ? 'text-accent' : 'text-subtle'}`} />
-                          <span className={`text-sm ${b.isCurrent ? 'text-white font-medium' : 'text-dark-300'}`}>{b.name}</span>
+                          <span className={`text-sm ${b.isCurrent ? 'text-white font-medium' : 'text-muted'}`}>{b.name}</span>
                           {b.isCurrent && <span className="px-2 py-0.5 bg-accent/20 text-accent text-xs rounded">current</span>}
                         </div>
                         <div className="flex gap-2">
@@ -878,10 +891,10 @@ export default function GitSync() {
                       </div>
                     ))}
                   </div>
-                  <div className="bg-dark-800 border border-dark-700 rounded-xl p-4 text-sm space-y-2">
-                    <p className="text-dark-300"><strong className="text-white">Remote:</strong> <span className="font-mono text-xs text-muted">{remoteUrl}</span></p>
+                  <div className="bg-surface border border-line rounded-control p-4 text-sm space-y-2">
+                    <p className="text-muted"><strong className="text-white">Remote:</strong> <span className="font-mono text-xs text-muted">{remoteUrl}</span></p>
                     {lastCommit && (
-                      <p className="text-dark-300"><strong className="text-white">Last commit:</strong>{' '}
+                      <p className="text-muted"><strong className="text-white">Last commit:</strong>{' '}
                         <span className="text-accent bg-accent/10 px-1.5 py-0.5 rounded text-[11px] font-mono">{lastCommit.hash?.substring(0, 7)}</span>{' '}
                         {lastCommit.message} <span className="text-subtle text-xs">· {lastCommit.author} · {lastCommit.time}</span>
                       </p>
@@ -903,7 +916,7 @@ export default function GitSync() {
                       <div className="text-subtle text-sm text-center py-12">No tags yet</div>
                     ) : (
                       tags.map(tag => (
-                        <div key={tag.name} className="flex items-center justify-between p-3 bg-dark-800 border border-dark-700 rounded-lg mb-2">
+                        <div key={tag.name} className="flex items-center justify-between p-3 bg-surface border border-line rounded-lg mb-2">
                           <div>
                             <span className="text-white font-medium">{tag.name}</span>
                             {tag.message && <p className="text-xs text-subtle mt-1">{tag.message}</p>}
@@ -920,38 +933,38 @@ export default function GitSync() {
 
               {tab === 'sync' && (
                 <div className="space-y-3 overflow-y-auto">
-                  <div className="bg-dark-800 border border-dark-700 rounded-xl p-4 space-y-4">
+                  <div className="bg-surface border border-line rounded-control p-4 space-y-4">
                     <h3 className="text-white text-sm font-semibold flex items-center gap-2"><RefreshCw className="w-4 h-4 text-accent" /> Auto-Sync Settings</h3>
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input type="checkbox" checked={syncConf.enabled} onChange={e => { const newConf = { ...syncConf, enabled: e.target.checked }; setSyncConf(newConf); saveSyncSettings(newConf); }} className="w-4 h-4 accent-accent rounded" />
-                      <span className="text-sm text-dark-200">Enable Auto-Sync</span>
+                      <span className="text-sm text-ink">Enable Auto-Sync</span>
                     </label>
                     <div>
                       <label className="text-xs text-muted mb-1 block">Pull interval (seconds)</label>
                       <input type="number" value={syncConf.intervalSeconds} onChange={e => setSyncConf({ ...syncConf, intervalSeconds: parseInt(e.target.value) || 30 })}
-                        className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white w-32 outline-none focus:border-accent" min={10} max={3600} />
+                        className="bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-white w-32 outline-none focus:border-accent" min={10} max={3600} />
                     </div>
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input type="checkbox" checked={syncConf.autoPush} onChange={e => setSyncConf({ ...syncConf, autoPush: e.target.checked })} className="w-4 h-4 accent-accent rounded" />
-                      <span className="text-sm text-dark-200">Auto Push on file change</span>
+                      <span className="text-sm text-ink">Auto Push on file change</span>
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input type="checkbox" checked={syncConf.autoPull} onChange={e => setSyncConf({ ...syncConf, autoPull: e.target.checked })} className="w-4 h-4 accent-accent rounded" />
-                      <span className="text-sm text-dark-200">Auto Pull (periodic)</span>
+                      <span className="text-sm text-ink">Auto Pull (periodic)</span>
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input type="checkbox" checked={syncConf.autoResolveConflicts} onChange={e => setSyncConf({ ...syncConf, autoResolveConflicts: e.target.checked })} className="w-4 h-4 accent-accent rounded" />
-                      <span className="text-sm text-dark-200">Auto-resolve conflicts (keep local)</span>
+                      <span className="text-sm text-ink">Auto-resolve conflicts (keep local)</span>
                     </label>
                     <div>
                       <label className="text-xs text-muted mb-1 block">Commit message template</label>
                       <input type="text" value={syncConf.commitMessage} onChange={e => setSyncConf({ ...syncConf, commitMessage: e.target.value })}
-                        className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white w-full outline-none focus:border-accent" />
+                        className="bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-white w-full outline-none focus:border-accent" />
                     </div>
                     <div>
                       <label className="text-xs text-muted mb-1 block">Restart PM2 App on Pull</label>
                       <select value={syncConf.pm2App || ''} onChange={e => setSyncConf({ ...syncConf, pm2App: e.target.value })}
-                        className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white w-full outline-none focus:border-accent">
+                        className="bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-white w-full outline-none focus:border-accent">
                         <option value="">None</option>
                         {pm2Apps.map(name => <option key={name} value={name}>{name}</option>)}
                       </select>
@@ -962,9 +975,9 @@ export default function GitSync() {
                       <Save className="w-4 h-4" /> Save Settings
                     </button>
                   </div>
-                  <div className="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                  <div className="bg-surface border border-line rounded-control p-4">
                     <h4 className="text-muted text-xs font-medium mb-2">Sync Log</h4>
-                    <pre className="bg-dark-900 rounded-lg p-3 text-[11px] font-mono text-muted max-h-48 overflow-auto whitespace-pre-wrap">{syncStatus.logs || 'No logs yet'}</pre>
+                    <pre className="bg-canvas rounded-lg p-3 text-[11px] font-mono text-muted max-h-48 overflow-auto whitespace-pre-wrap">{syncStatus.logs || 'No logs yet'}</pre>
                   </div>
                 </div>
               )}
@@ -976,12 +989,12 @@ export default function GitSync() {
       {/* Create Branch Modal */}
       {createBranchModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setCreateBranchModal(false)}>
-          <div className="bg-dark-800 border border-dark-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface border border-line rounded-control p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
             <h2 className="text-white font-semibold mb-4">Create New Branch</h2>
             <input value={newBranchName} onChange={e => setNewBranchName(e.target.value)} placeholder="branch-name"
-              className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none mb-4" />
+              className="w-full bg-canvas border border-line rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none mb-4" />
             <div className="flex gap-2">
-              <button onClick={() => setCreateBranchModal(false)} className="flex-1 px-4 py-2 bg-dark-700 hover:bg-dark-600 text-white text-sm rounded-lg transition">Cancel</button>
+              <button onClick={() => setCreateBranchModal(false)} className="flex-1 px-4 py-2 bg-raised hover:bg-raised text-white text-sm rounded-lg transition">Cancel</button>
               <button onClick={handleCreateBranch} className="flex-1 px-4 py-2 bg-accent hover:bg-accent/80 text-white text-sm rounded-lg transition">Create</button>
             </div>
           </div>
@@ -991,14 +1004,14 @@ export default function GitSync() {
       {/* Create Tag Modal */}
       {createTagModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setCreateTagModal(false)}>
-          <div className="bg-dark-800 border border-dark-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface border border-line rounded-control p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
             <h2 className="text-white font-semibold mb-4">Create Tag</h2>
             <input value={newTagName} onChange={e => setNewTagName(e.target.value)} placeholder="v1.0.0"
-              className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none mb-3" />
+              className="w-full bg-canvas border border-line rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none mb-3" />
             <textarea value={newTagMessage} onChange={e => setNewTagMessage(e.target.value)} placeholder="Release notes..."
-              className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none mb-4 h-20 resize-none" />
+              className="w-full bg-canvas border border-line rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:border-accent outline-none mb-4 h-20 resize-none" />
             <div className="flex gap-2">
-              <button onClick={() => setCreateTagModal(false)} className="flex-1 px-4 py-2 bg-dark-700 hover:bg-dark-600 text-white text-sm rounded-lg transition">Cancel</button>
+              <button onClick={() => setCreateTagModal(false)} className="flex-1 px-4 py-2 bg-raised hover:bg-raised text-white text-sm rounded-lg transition">Cancel</button>
               <button onClick={handleCreateTag} className="flex-1 px-4 py-2 bg-accent hover:bg-accent/80 text-white text-sm rounded-lg transition">Create</button>
             </div>
           </div>

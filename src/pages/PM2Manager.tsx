@@ -9,7 +9,7 @@ import {
   Folder, FolderOpen, File, FileCode, Settings, Save,
   Power, ArchiveRestore, Cpu, MemoryStick, Clock, AlertTriangle,
   Info, MoreVertical, Zap, Eye, EyeOff, Copy, Scale3D,
-  ArrowLeft, Check, Loader2, Terminal, Globe, Hash, Database, Target
+  ArrowLeft, Check, Loader2, Terminal, Globe, Hash, Database, Target, Boxes
 } from 'lucide-react';
 
 // ─── Types ───
@@ -153,7 +153,7 @@ function SummaryBar({ apps }: { apps: PM2App[] }) {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 px-3 py-2.5">
-      <div className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
+      <div className="flex items-center gap-2 px-3 py-2 bg-surface rounded-lg border border-line">
         <Database className="w-3.5 h-3.5 text-muted" />
         <div>
           <div className="text-[10px] text-subtle uppercase">Total</div>
@@ -167,7 +167,7 @@ function SummaryBar({ apps }: { apps: PM2App[] }) {
           <div className="text-sm font-semibold text-green-400">{online}</div>
         </div>
       </div>
-      <div className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
+      <div className="flex items-center gap-2 px-3 py-2 bg-surface rounded-lg border border-line">
         <Square className="w-3 h-3 text-subtle" />
         <div>
           <div className="text-[10px] text-subtle uppercase">Stopped</div>
@@ -181,14 +181,14 @@ function SummaryBar({ apps }: { apps: PM2App[] }) {
           <div className="text-sm font-semibold text-red-400">{errored}</div>
         </div>
       </div>
-      <div className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
+      <div className="flex items-center gap-2 px-3 py-2 bg-surface rounded-lg border border-line">
         <Cpu className="w-3.5 h-3.5 text-cyan-400" />
         <div>
           <div className="text-[10px] text-subtle uppercase">CPU</div>
           <div className="text-sm font-semibold text-cyan-400">{totalCpu.toFixed(1)}%</div>
         </div>
       </div>
-      <div className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
+      <div className="flex items-center gap-2 px-3 py-2 bg-surface rounded-lg border border-line">
         <MemoryStick className="w-3.5 h-3.5 text-purple-400" />
         <div>
           <div className="text-[10px] text-subtle uppercase">Memory</div>
@@ -292,9 +292,9 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
-      <div className="bg-dark-900 border border-dark-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+      <div className="bg-canvas border border-line rounded-card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-dark-700">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
               <Plus className="w-4 h-4 text-accent" />
@@ -304,7 +304,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <p className="text-[11px] text-muted">Step {step} of 4</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -312,7 +312,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
         {/* Step indicator */}
         <div className="flex px-5 pt-3 gap-1">
           {[1, 2, 3, 4].map(s => (
-            <div key={s} className={`h-1 flex-1 rounded-full transition-all ${s <= step ? 'bg-accent' : 'bg-dark-700'}`} />
+            <div key={s} className={`h-1 flex-1 rounded-full transition-all ${s <= step ? 'bg-accent' : 'bg-raised'}`} />
           ))}
         </div>
 
@@ -327,14 +327,14 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
           {/* Step 1: Select Folder */}
           {step === 1 && (
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-dark-300 uppercase tracking-wider">Select Project Folder</h4>
+              <h4 className="text-xs font-medium text-muted uppercase tracking-wider">Select Project Folder</h4>
               
               {/* Breadcrumb */}
               <div className="flex items-center gap-1 text-xs text-muted flex-wrap">
                 <button onClick={() => loadDir('/')} className="hover:text-accent transition">/</button>
                 {pathSegments.map((seg, i) => (
                   <React.Fragment key={i}>
-                    <ChevronRight className="w-3 h-3 text-dark-600" />
+                    <ChevronRight className="w-3 h-3 text-muted" />
                     <button
                       onClick={() => loadDir('/' + pathSegments.slice(0, i + 1).join('/'))}
                       className="hover:text-accent transition"
@@ -346,11 +346,11 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               </div>
 
               {/* Directory list */}
-              <div className="border border-dark-700 rounded-lg max-h-64 overflow-auto bg-dark-800/50">
+              <div className="border border-line rounded-lg max-h-64 overflow-auto bg-surface">
                 {browseData?.parent && browseData.parent !== browseData.path && (
                   <button
                     onClick={() => loadDir(browseData.parent)}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-dark-700/50 text-muted text-xs border-b border-dark-700/50 transition"
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-raised text-muted text-xs border-b border-line transition"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>..</span>
@@ -370,7 +370,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                       className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition ${
                         selectedFolder === dir.path
                           ? 'bg-accent/10 text-accent border-l-2 border-accent'
-                          : 'hover:bg-dark-700/50 text-dark-300'
+                          : 'hover:bg-raised text-muted'
                       }`}
                     >
                       {selectedFolder === dir.path ? (
@@ -399,7 +399,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               )}
 
               <div className="text-xs text-subtle">
-                Selected: <span className="text-dark-300 font-mono">{selectedFolder || browsePath}</span>
+                Selected: <span className="text-muted font-mono">{selectedFolder || browsePath}</span>
               </div>
             </div>
           )}
@@ -407,21 +407,21 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
           {/* Step 2: Select Start File */}
           {step === 2 && (
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-dark-300 uppercase tracking-wider">Select Start File</h4>
+              <h4 className="text-xs font-medium text-muted uppercase tracking-wider">Select Start File</h4>
               <p className="text-[11px] text-subtle">
                 From: <span className="font-mono text-muted">{selectedFolder || browsePath}</span>
               </p>
 
               {projectFiles.length > 0 && (
-                <div className="border border-dark-700 rounded-lg overflow-hidden bg-dark-800/50">
+                <div className="border border-line rounded-lg overflow-hidden bg-surface">
                   {projectFiles.map(f => (
                     <button
                       key={f.path}
                       onClick={() => { setSelectedFile(f.name); setManualFile(''); }}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 text-xs transition border-b border-dark-700/30 last:border-0 ${
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 text-xs transition border-b border-line/30 last:border-0 ${
                         selectedFile === f.name
                           ? 'bg-accent/10 text-accent'
-                          : 'hover:bg-dark-700/50 text-dark-300'
+                          : 'hover:bg-raised text-muted'
                       }`}
                     >
                       <FileCode className="w-3.5 h-3.5" />
@@ -434,16 +434,16 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               )}
 
               <div className="flex items-center gap-2 text-subtle text-[11px]">
-                <div className="flex-1 h-px bg-dark-700" />
+                <div className="flex-1 h-px bg-raised" />
                 <span>or enter manually</span>
-                <div className="flex-1 h-px bg-dark-700" />
+                <div className="flex-1 h-px bg-raised" />
               </div>
 
               <input
                 value={manualFile}
                 onChange={e => { setManualFile(e.target.value); setSelectedFile(''); }}
                 placeholder="e.g. src/index.js, npm start"
-                className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent font-mono"
+                className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm text-white focus:outline-none focus:border-accent font-mono"
               />
             </div>
           )}
@@ -451,7 +451,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
           {/* Step 3: Configure */}
           {step === 3 && (
             <div className="space-y-4">
-              <h4 className="text-xs font-medium text-dark-300 uppercase tracking-wider">Configure Application</h4>
+              <h4 className="text-xs font-medium text-muted uppercase tracking-wider">Configure Application</h4>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* App Name */}
@@ -461,7 +461,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     value={appName}
                     onChange={e => setAppName(e.target.value)}
                     placeholder="my-app"
-                    className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent"
+                    className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm text-white focus:outline-none focus:border-accent"
                   />
                 </div>
 
@@ -471,7 +471,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                   <select
                     value={interpreter}
                     onChange={e => setInterpreter(e.target.value)}
-                    className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent"
+                    className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm text-white focus:outline-none focus:border-accent"
                   >
                     <option value="node">Node.js</option>
                     <option value="python3">Python 3</option>
@@ -491,7 +491,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-medium transition ${
                       execMode === 'fork'
                         ? 'bg-accent/10 border-accent/30 text-accent'
-                        : 'bg-dark-800 border-dark-600 text-muted hover:border-dark-500'
+                        : 'bg-surface border-line text-muted hover:border-line-strong'
                     }`}
                   >
                     <Terminal className="w-3.5 h-3.5" />
@@ -502,7 +502,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-medium transition ${
                       execMode === 'cluster'
                         ? 'bg-accent/10 border-accent/30 text-accent'
-                        : 'bg-dark-800 border-dark-600 text-muted hover:border-dark-500'
+                        : 'bg-surface border-line text-muted hover:border-line-strong'
                     }`}
                   >
                     <Globe className="w-3.5 h-3.5" />
@@ -519,27 +519,27 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     value={instances}
                     onChange={e => setInstances(e.target.value)}
                     placeholder="max or number"
-                    className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent"
+                    className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm text-white focus:outline-none focus:border-accent"
                   />
                 </div>
               )}
 
               {/* Toggles */}
               <div className="grid grid-cols-2 gap-3">
-                <label className="flex items-center gap-2 px-3 py-2.5 bg-dark-800 border border-dark-600 rounded-lg cursor-pointer hover:border-dark-500 transition">
+                <label className="flex items-center gap-2 px-3 py-2.5 bg-surface border border-line rounded-lg cursor-pointer hover:border-line-strong transition">
                   <input type="checkbox" checked={watchMode} onChange={e => setWatchMode(e.target.checked)} className="accent-cyan-400" />
                   <Eye className="w-3.5 h-3.5 text-muted" />
-                  <span className="text-xs text-dark-300">Watch Mode</span>
+                  <span className="text-xs text-muted">Watch Mode</span>
                 </label>
-                <label className="flex items-center gap-2 px-3 py-2.5 bg-dark-800 border border-dark-600 rounded-lg cursor-pointer hover:border-dark-500 transition">
+                <label className="flex items-center gap-2 px-3 py-2.5 bg-surface border border-line rounded-lg cursor-pointer hover:border-line-strong transition">
                   <input type="checkbox" checked={autoRestart} onChange={e => setAutoRestart(e.target.checked)} className="accent-cyan-400" />
                   <RotateCcw className="w-3.5 h-3.5 text-muted" />
-                  <span className="text-xs text-dark-300">Auto Restart</span>
+                  <span className="text-xs text-muted">Auto Restart</span>
                 </label>
               </div>
 
               {/* Smart Restart Toggle */}
-              <div className="bg-dark-800/50 rounded-lg border border-dark-600 p-3">
+              <div className="bg-surface rounded-lg border border-line p-3">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-cyan-400" />
@@ -575,7 +575,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                         className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-medium transition ${
                           watchType === 'all'
                             ? 'bg-accent/10 border-accent/30 text-accent'
-                            : 'bg-dark-800 border-dark-600 text-muted hover:border-dark-500'
+                            : 'bg-surface border-line text-muted hover:border-line-strong'
                         }`}
                       >
                         <Eye className="w-3.5 h-3.5" />
@@ -586,7 +586,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                         className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-medium transition ${
                           watchType === 'only'
                             ? 'bg-accent/10 border-accent/30 text-accent'
-                            : 'bg-dark-800 border-dark-600 text-muted hover:border-dark-500'
+                            : 'bg-surface border-line text-muted hover:border-line-strong'
                         }`}
                       >
                         <Target className="w-3.5 h-3.5" />
@@ -603,7 +603,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                         value={ignoreWatch}
                         onChange={e => setIgnoreWatch(e.target.value)}
                         placeholder="Extra patterns (comma-sep), e.g. data/, *.json"
-                        className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent"
+                        className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm text-white focus:outline-none focus:border-accent"
                       />
                       <p className="text-[10px] text-subtle mt-1">Auto-ignored: node_modules, .git, *.db, *.sqlite, *.log, logs</p>
                     </div>
@@ -617,7 +617,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                         value={watchOnly}
                         onChange={e => setWatchOnly(e.target.value)}
                         placeholder="Files or folders (comma-sep), e.g. src/, index.js, config/"
-                        className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent"
+                        className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm text-white focus:outline-none focus:border-accent"
                       />
                       <p className="text-[10px] text-subtle mt-1">Only restarts when these files/folders change</p>
                     </div>
@@ -632,7 +632,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                   value={maxMemRestart}
                   onChange={e => setMaxMemRestart(e.target.value)}
                   placeholder="e.g. 200M, 1G"
-                  className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent"
+                  className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm text-white focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -643,7 +643,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                   value={cronRestart}
                   onChange={e => setCronRestart(e.target.value)}
                   placeholder="e.g. 0 0 * * * (daily at midnight)"
-                  className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent font-mono"
+                  className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm text-white focus:outline-none focus:border-accent font-mono"
                 />
               </div>
 
@@ -654,7 +654,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                   value={nodeArgs}
                   onChange={e => setNodeArgs(e.target.value)}
                   placeholder="e.g. --max-old-space-size=4096"
-                  className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent font-mono"
+                  className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm text-white focus:outline-none focus:border-accent font-mono"
                 />
               </div>
 
@@ -679,7 +679,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                         setEnvVars(next);
                       }}
                       placeholder="KEY"
-                      className="flex-1 px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-xs text-white focus:outline-none focus:border-accent font-mono"
+                      className="flex-1 px-2 py-1.5 bg-surface border border-line rounded text-xs text-white focus:outline-none focus:border-accent font-mono"
                     />
                     <input
                       value={v.value}
@@ -689,7 +689,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                         setEnvVars(next);
                       }}
                       placeholder="value"
-                      className="flex-1 px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-xs text-white focus:outline-none focus:border-accent font-mono"
+                      className="flex-1 px-2 py-1.5 bg-surface border border-line rounded text-xs text-white focus:outline-none focus:border-accent font-mono"
                     />
                     <button
                       onClick={() => setEnvVars(envVars.filter((_, j) => j !== i))}
@@ -706,9 +706,9 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
           {/* Step 4: Review & Start */}
           {step === 4 && (
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-dark-300 uppercase tracking-wider">Review & Launch</h4>
+              <h4 className="text-xs font-medium text-muted uppercase tracking-wider">Review & Launch</h4>
               
-              <div className="bg-dark-800/50 rounded-lg border border-dark-700/50 divide-y divide-dark-700/50">
+              <div className="bg-surface rounded-lg border border-line divide-y divide-dark-700/50">
                 <div className="flex justify-between px-4 py-2.5">
                   <span className="text-xs text-subtle">Name</span>
                   <span className="text-xs text-white font-medium">{appName}</span>
@@ -719,15 +719,15 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
                   <span className="text-xs text-subtle">Directory</span>
-                  <span className="text-xs text-dark-300 font-mono truncate max-w-[60%]">{selectedFolder || browsePath}</span>
+                  <span className="text-xs text-muted font-mono truncate max-w-[60%]">{selectedFolder || browsePath}</span>
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
                   <span className="text-xs text-subtle">Mode</span>
-                  <span className="text-xs text-dark-300">{execMode}{execMode === 'cluster' ? ` × ${instances}` : ''}</span>
+                  <span className="text-xs text-muted">{execMode}{execMode === 'cluster' ? ` × ${instances}` : ''}</span>
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
                   <span className="text-xs text-subtle">Interpreter</span>
-                  <span className="text-xs text-dark-300">{interpreter}</span>
+                  <span className="text-xs text-muted">{interpreter}</span>
                 </div>
                 {watchMode && (
                   <div className="flex justify-between px-4 py-2.5">
@@ -738,26 +738,26 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                 {maxMemRestart && (
                   <div className="flex justify-between px-4 py-2.5">
                     <span className="text-xs text-subtle">Max Memory</span>
-                    <span className="text-xs text-dark-300">{maxMemRestart}</span>
+                    <span className="text-xs text-muted">{maxMemRestart}</span>
                   </div>
                 )}
                 {cronRestart && (
                   <div className="flex justify-between px-4 py-2.5">
                     <span className="text-xs text-subtle">Cron Restart</span>
-                    <span className="text-xs text-dark-300 font-mono">{cronRestart}</span>
+                    <span className="text-xs text-muted font-mono">{cronRestart}</span>
                   </div>
                 )}
                 {nodeArgs && (
                   <div className="flex justify-between px-4 py-2.5">
                     <span className="text-xs text-subtle">Node Args</span>
-                    <span className="text-xs text-dark-300 font-mono">{nodeArgs}</span>
+                    <span className="text-xs text-muted font-mono">{nodeArgs}</span>
                   </div>
                 )}
                 {envVars.filter(v => v.key).length > 0 && (
                   <div className="px-4 py-2.5">
                     <span className="text-xs text-subtle block mb-1">Environment</span>
                     {envVars.filter(v => v.key).map((v, i) => (
-                      <div key={i} className="text-[11px] font-mono text-dark-300">
+                      <div key={i} className="text-[11px] font-mono text-muted">
                         <span className="text-cyan-400">{v.key}</span>=<span className="text-muted">{v.value}</span>
                       </div>
                     ))}
@@ -769,7 +769,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-dark-700 bg-dark-800/30">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-line bg-surface/30">
           <button
             onClick={() => step > 1 ? setStep(step - 1) : onClose()}
             className="px-3 py-1.5 text-xs text-muted hover:text-white transition"
@@ -844,17 +844,17 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
-      <div className="bg-dark-900 border border-dark-700 rounded-2xl w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+      <div className="bg-canvas border border-line rounded-card w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-dark-700">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <div className="flex items-center gap-3">
-            <div className={`w-2.5 h-2.5 rounded-full ${detail?.status === 'online' ? 'bg-green-400' : detail?.status === 'errored' ? 'bg-red-400' : 'bg-dark-500'}`} />
+            <div className={`w-2.5 h-2.5 rounded-full ${detail?.status === 'online' ? 'bg-green-400' : detail?.status === 'errored' ? 'bg-red-400' : 'bg-line-strong'}`} />
             <div>
               <h3 className="text-sm font-semibold text-white">{appName}</h3>
               <p className="text-[11px] text-muted">{detail?.status || 'loading...'} · ID {detail?.pm_id}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -875,7 +875,7 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
                 { label: 'Mode', value: detail.exec_mode?.replace('_mode', ''), icon: Terminal },
                 { label: 'Instances', value: String(detail.instances || 1), icon: Globe },
               ].map(item => (
-                <div key={item.label} className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
+                <div key={item.label} className="flex items-center gap-2 px-3 py-2 bg-surface rounded-lg border border-line">
                   <item.icon className="w-3.5 h-3.5 text-subtle" />
                   <div>
                     <div className="text-[10px] text-subtle">{item.label}</div>
@@ -888,22 +888,22 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
             {/* Paths */}
             <div className="space-y-1.5">
               <div className="text-[10px] text-subtle uppercase">Paths</div>
-              <div className="bg-dark-800/50 rounded-lg border border-dark-700/50 divide-y divide-dark-700/30 font-mono text-[11px]">
+              <div className="bg-surface rounded-lg border border-line divide-y divide-dark-700/30 font-mono text-[11px]">
                 <div className="px-3 py-2 flex items-start gap-2">
                   <span className="text-subtle shrink-0 w-12">Script</span>
-                  <span className="text-dark-300 break-all">{detail.pm_exec_path}</span>
+                  <span className="text-muted break-all">{detail.pm_exec_path}</span>
                 </div>
                 <div className="px-3 py-2 flex items-start gap-2">
                   <span className="text-subtle shrink-0 w-12">CWD</span>
-                  <span className="text-dark-300 break-all">{detail.pm_cwd}</span>
+                  <span className="text-muted break-all">{detail.pm_cwd}</span>
                 </div>
                 <div className="px-3 py-2 flex items-start gap-2">
                   <span className="text-subtle shrink-0 w-12">Out</span>
-                  <span className="text-dark-300 break-all">{detail.pm_out_log_path}</span>
+                  <span className="text-muted break-all">{detail.pm_out_log_path}</span>
                 </div>
                 <div className="px-3 py-2 flex items-start gap-2">
                   <span className="text-subtle shrink-0 w-12">Err</span>
-                  <span className="text-dark-300 break-all">{detail.pm_err_log_path}</span>
+                  <span className="text-muted break-all">{detail.pm_err_log_path}</span>
                 </div>
               </div>
             </div>
@@ -913,15 +913,15 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
               <div>
                 <button
                   onClick={() => setShowEnv(!showEnv)}
-                  className="flex items-center gap-1.5 text-[10px] text-subtle uppercase hover:text-dark-300 transition"
+                  className="flex items-center gap-1.5 text-[10px] text-subtle uppercase hover:text-muted transition"
                 >
                   {showEnv ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                   Environment Variables ({envEntries.length})
                 </button>
                 {showEnv && (
-                  <div className="mt-1.5 bg-dark-800/50 rounded-lg border border-dark-700/50 max-h-40 overflow-auto">
+                  <div className="mt-1.5 bg-surface rounded-lg border border-line max-h-40 overflow-auto">
                     {envEntries.map(([k, v]) => (
-                      <div key={k} className="flex px-3 py-1.5 text-[11px] font-mono border-b border-dark-700/20 last:border-0">
+                      <div key={k} className="flex px-3 py-1.5 text-[11px] font-mono border-b border-line/20 last:border-0">
                         <span className="text-cyan-400 shrink-0 mr-2">{k}</span>
                         <span className="text-muted truncate">{String(v)}</span>
                       </div>
@@ -940,7 +940,7 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
                     value={scaleInput}
                     onChange={e => setScaleInput(e.target.value)}
                     placeholder={`Current: ${detail.instances || 1}`}
-                    className="flex-1 px-3 py-1.5 bg-dark-800 border border-dark-600 rounded-lg text-xs text-white focus:outline-none focus:border-accent"
+                    className="flex-1 px-3 py-1.5 bg-surface border border-line rounded-lg text-xs text-white focus:outline-none focus:border-accent"
                   />
                   <button
                     onClick={() => scaleInput && doDetailAction('scale', { name: appName, instances: scaleInput })}
@@ -956,7 +956,7 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
             {/* Smart Restart */}
             <div>
               <div className="text-[10px] text-subtle uppercase mb-1.5">Smart Restart</div>
-              <div className="bg-dark-800/50 rounded-lg border border-dark-700/50 p-3">
+              <div className="bg-surface rounded-lg border border-line p-3">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
                     <span className="text-xs text-white font-medium">Restart on external changes</span>
@@ -992,7 +992,7 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
                   { label: 'Reload', action: 'reload', icon: RefreshCw, color: 'text-cyan-400 hover:bg-cyan-400/10 border-cyan-400/20' },
                   { label: detail?.status === 'online' ? 'Stop' : 'Start', action: detail?.status === 'online' ? 'stop' : 'start', icon: detail?.status === 'online' ? Square : Play, color: detail?.status === 'online' ? 'text-amber-400 hover:bg-amber-400/10 border-amber-400/20' : 'text-green-400 hover:bg-green-400/10 border-green-400/20' },
                   { label: 'Flush Logs', action: 'flush', icon: Eraser, color: 'text-purple-400 hover:bg-purple-400/10 border-purple-400/20' },
-                  { label: 'Reset Count', action: 'reset', icon: Hash, color: 'text-muted hover:bg-dark-700/50 border-dark-600' },
+                  { label: 'Reset Count', action: 'reset', icon: Hash, color: 'text-muted hover:bg-raised border-line' },
                   { label: 'Delete', action: 'delete', icon: Trash2, color: 'text-red-400 hover:bg-red-400/10 border-red-400/20' },
                 ].map(btn => (
                   <button
@@ -1148,9 +1148,9 @@ export default function PM2Manager() {
   const statusBg = (status: string) => {
     switch (status) {
       case 'online': return 'bg-green-400/10 border-green-400/20';
-      case 'stopped': return 'bg-dark-700/50 border-dark-600';
+      case 'stopped': return 'bg-raised border-line';
       case 'errored': return 'bg-red-400/10 border-red-400/20';
-      default: return 'bg-dark-700/50 border-dark-600';
+      default: return 'bg-raised border-line';
     }
   };
 
@@ -1160,7 +1160,7 @@ export default function PM2Manager() {
       case 'warn': return 'text-amber-400';
       case 'info': return 'text-blue-400';
       case 'debug': return 'text-subtle';
-      default: return 'text-dark-300';
+      default: return 'text-muted';
     }
   };
 
@@ -1169,13 +1169,13 @@ export default function PM2Manager() {
   };
 
   const renderLogViewer = (isFullscreen: boolean) => (
-    <div className={isFullscreen ? 'fixed inset-0 z-[100] bg-[#080c16] flex flex-col animate-fade-in' : 'border-t border-dark-700/50'}>
+    <div className={isFullscreen ? 'fixed inset-0 z-[100] bg-[#080c16] flex flex-col animate-fade-in' : 'border-t border-line'}>
       {/* Log Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-dark-900/80 border-b border-dark-700/50">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-canvas/80 border-b border-line">
         <span className="text-[11px] text-muted flex items-center gap-1.5 mr-2">
           <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-          <span className="font-medium text-dark-300">{logApp}</span>
-          <span className="text-dark-600">·</span>
+          <span className="font-medium text-muted">{logApp}</span>
+          <span className="text-muted">·</span>
           <span>{filteredLogs.length} lines</span>
         </span>
 
@@ -1186,7 +1186,7 @@ export default function PM2Manager() {
             value={logFilter}
             onChange={e => setLogFilter(e.target.value)}
             placeholder="Filter logs..."
-            className="w-full pl-7 pr-2 py-1 bg-dark-800 border border-dark-600 rounded text-[11px] text-white focus:outline-none focus:border-accent"
+            className="w-full pl-7 pr-2 py-1 bg-surface border border-line rounded text-[11px] text-white focus:outline-none focus:border-accent"
           />
         </div>
 
@@ -1194,7 +1194,7 @@ export default function PM2Manager() {
         <select
           value={logLevelFilter}
           onChange={e => setLogLevelFilter(e.target.value)}
-          className="px-2 py-1 bg-dark-800 border border-dark-600 rounded text-[11px] text-dark-300 focus:outline-none focus:border-accent"
+          className="px-2 py-1 bg-surface border border-line rounded text-[11px] text-muted focus:outline-none focus:border-accent"
         >
           <option value="all">All Levels</option>
           <option value="error">Error</option>
@@ -1208,7 +1208,7 @@ export default function PM2Manager() {
           {/* Auto-scroll toggle */}
           <button
             onClick={() => setAutoScroll(!autoScroll)}
-            className={`p-1.5 rounded transition text-[10px] flex items-center gap-1 ${autoScroll ? 'bg-accent/10 text-accent' : 'text-subtle hover:text-dark-300 hover:bg-dark-800'}`}
+            className={`p-1.5 rounded transition text-[10px] flex items-center gap-1 ${autoScroll ? 'bg-accent/10 text-accent' : 'text-subtle hover:text-muted hover:bg-surface'}`}
             title="Auto-scroll"
           >
             <ArrowDownToLine className="w-3.5 h-3.5" />
@@ -1226,7 +1226,7 @@ export default function PM2Manager() {
           {/* Fullscreen toggle */}
           <button
             onClick={() => setFullscreen(!fullscreen)}
-            className="p-1.5 rounded text-subtle hover:text-white hover:bg-dark-800 transition"
+            className="p-1.5 rounded text-subtle hover:text-white hover:bg-surface transition"
             title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
           >
             {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -1235,7 +1235,7 @@ export default function PM2Manager() {
           {/* Close */}
           <button
             onClick={() => { setLogApp(null); setFullscreen(false); }}
-            className="p-1.5 rounded text-subtle hover:text-white hover:bg-dark-800 transition"
+            className="p-1.5 rounded text-subtle hover:text-white hover:bg-surface transition"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -1259,7 +1259,7 @@ export default function PM2Manager() {
                   key={line.id}
                   className={`border-l-2 ${streamBorderColor(line.stream)} hover:bg-white/[0.02] group`}
                 >
-                  <td className="text-dark-600 text-[10px] px-2 py-0 select-none text-right align-top whitespace-nowrap w-[1%]">
+                  <td className="text-muted text-[10px] px-2 py-0 select-none text-right align-top whitespace-nowrap w-[1%]">
                     {line.id}
                   </td>
                   <td className="text-subtle text-[10px] px-2 py-0 select-none align-top whitespace-nowrap w-[1%]">
@@ -1292,15 +1292,15 @@ export default function PM2Manager() {
       )}
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 p-3 border-b border-dark-700 bg-dark-800/30">
-        <h2 className="text-sm font-medium text-dark-200 flex-1">PM2 Applications</h2>
-        
+      <div className="flex flex-wrap items-center gap-2 p-3 border-b border-line bg-surface/30">
+        <h2 className="text-body font-semibold text-ink flex-1">PM2</h2>
+
         {/* Global PM2 Actions */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => doGlobalAction('save')}
             disabled={globalActionLoading === 'save'}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition text-[11px]"
+            className="btn btn-sm btn-quiet"
             title="PM2 Save"
           >
             {globalActionLoading === 'save' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -1309,7 +1309,7 @@ export default function PM2Manager() {
           <button
             onClick={() => doGlobalAction('startup')}
             disabled={globalActionLoading === 'startup'}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition text-[11px]"
+            className="btn btn-sm btn-quiet"
             title="PM2 Startup"
           >
             {globalActionLoading === 'startup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
@@ -1318,7 +1318,7 @@ export default function PM2Manager() {
           <button
             onClick={() => doGlobalAction('resurrect')}
             disabled={globalActionLoading === 'resurrect'}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition text-[11px]"
+            className="btn btn-sm btn-quiet"
             title="PM2 Resurrect"
           >
             {globalActionLoading === 'resurrect' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArchiveRestore className="w-3.5 h-3.5" />}
@@ -1326,11 +1326,14 @@ export default function PM2Manager() {
           </button>
         </div>
 
-        <button onClick={() => setShowNewApp(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-medium hover:bg-accent/20 transition border border-accent/20">
-          <Plus className="w-3.5 h-3.5" /> New App
-        </button>
-        <button onClick={load} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
+        {/* With no apps, the empty state owns the primary action - a second
+            CTA here just wraps the toolbar on narrow screens. */}
+        {apps.length > 0 && (
+          <button onClick={() => setShowNewApp(true)} className="btn btn-sm btn-primary">
+            <Plus className="w-3.5 h-3.5" /> New app
+          </button>
+        )}
+        <button onClick={load} className="btn-icon" aria-label="Refresh apps">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
@@ -1341,16 +1344,26 @@ export default function PM2Manager() {
       {/* App List */}
       <div className="flex-1 overflow-auto p-3 space-y-2">
         {apps.length === 0 && !loading && (
-          <div className="text-center py-12 text-subtle text-sm">
-            No PM2 applications running
-            <button onClick={() => setShowNewApp(true)} className="block mx-auto mt-3 px-4 py-2 bg-accent/10 text-accent text-xs rounded-lg hover:bg-accent/20 transition border border-accent/20">
-              <Plus className="w-3.5 h-3.5 inline mr-1.5" />Launch your first app
-            </button>
+          <div className="empty">
+            <Boxes className="w-8 h-8 text-muted mb-2" />
+            <p className="empty-title">No apps running</p>
+            <p className="empty-sub">
+              PM2 keeps Node processes alive and restarts them on crash. Add one to get started,
+              or restore a previously saved list.
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center mt-4">
+              <button onClick={() => setShowNewApp(true)} className="btn btn-primary">
+                <Plus className="w-4 h-4" /> Add app
+              </button>
+              <button onClick={() => doGlobalAction('resurrect')} className="btn btn-quiet">
+                <ArchiveRestore className="w-4 h-4" /> Restore saved apps
+              </button>
+            </div>
           </div>
         )}
 
         {apps.map(app => (
-          <div key={app.pm_id} className={`border rounded-xl overflow-hidden ${statusBg(app.pm2_env.status)}`}>
+          <div key={app.pm_id} className={`border rounded-control overflow-hidden ${statusBg(app.pm2_env.status)}`}>
             <div className="flex items-center gap-3 px-4 py-3">
               {/* Status dot */}
               <Circle className={`w-2.5 h-2.5 fill-current shrink-0 ${statusColor(app.pm2_env.status)}`} />
@@ -1362,7 +1375,7 @@ export default function PM2Manager() {
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusBg(app.pm2_env.status)} ${statusColor(app.pm2_env.status)} uppercase font-medium`}>
                     {app.pm2_env.status}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-dark-700/50 border border-dark-600 text-muted uppercase">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-raised border border-line text-muted uppercase">
                     {app.pm2_env.exec_mode?.replace('_mode', '') || 'fork'}
                   </span>
                 </div>
@@ -1379,12 +1392,12 @@ export default function PM2Manager() {
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => setDetailApp(app.name)}
-                  className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700/50 transition"
+                  className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition"
                   title="Details">
                   <Info className="w-4 h-4" />
                 </button>
                 <button onClick={() => setLogApp(logApp === app.name ? null : app.name)}
-                  className={`p-1.5 rounded-lg transition ${logApp === app.name ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-dark-700/50'}`}
+                  className={`p-1.5 rounded-lg transition ${logApp === app.name ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-raised'}`}
                   title="Logs">
                   <ScrollText className="w-4 h-4" />
                 </button>

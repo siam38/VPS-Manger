@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Eye, EyeOff, Server, Heart } from 'lucide-react';
+import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface Props { onLogin: (token: string) => void; }
 
@@ -24,47 +24,48 @@ export default function Login({ onLogin }: Props) {
       if (res.ok && data.token) {
         onLogin(data.token);
       } else {
-        setError(data.error || 'Login failed');
+        setError(data.error || 'That password was not accepted.');
       }
     } catch {
-      setError('Connection failed');
+      setError('Could not reach the server. Check that the panel is running.');
     }
     setLoading(false);
   };
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-dark-900 px-4">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-orange-500/3 rounded-full blur-3xl" />
-      </div>
-      <div className="relative w-full max-w-sm animate-fade-in">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-dark-800 border border-dark-600 mb-4 shadow-lg shadow-teal-500/5">
-            <Server className="w-8 h-8 text-accent" />
+    <div className="min-h-[100dvh] flex items-center justify-center bg-canvas px-4 py-10">
+      <div className="w-full max-w-[380px] card p-8">
+        <div className="flex items-center gap-2.5 mb-8">
+          <div className="w-9 h-9 rounded-card bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
+            <span className="text-accent text-title font-bold leading-none">V</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">VPS Manager</h1>
-          <p className="text-muted text-sm mt-1">VPS Control Center</p>
+          <div>
+            <h1 className="text-title font-semibold text-ink leading-tight">VPS Manager</h1>
+            <p className="text-meta text-muted leading-tight">Sign in to continue</p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-dark-800/50 backdrop-blur border border-dark-700 rounded-2xl p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-dark-300 mb-1.5">Password</label>
+            <label htmlFor="password" className="eyebrow block mb-2">Password</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle pointer-events-none" />
               <input
+                id="password"
                 type={show ? 'text' : 'password'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 bg-dark-900 border border-dark-600 rounded-xl text-white placeholder-dark-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/50 transition"
+                className="field h-10 pl-9 pr-11"
                 placeholder="Enter password"
                 autoFocus
+                aria-invalid={!!error}
+                aria-describedby={error ? 'login-error' : undefined}
               />
               <button
                 type="button"
                 onClick={() => setShow(!show)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-dark-200 transition"
+                aria-label={show ? 'Hide password' : 'Show password'}
+                className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-control text-subtle hover:text-ink hover:bg-raised transition-colors"
               >
                 {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -72,28 +73,26 @@ export default function Login({ onLogin }: Props) {
           </div>
 
           {error && (
-            <div className="text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
-              {error}
+            <div
+              id="login-error"
+              role="alert"
+              className="flex items-start gap-2 px-3 py-2 rounded-control bg-danger/10 border border-danger/25"
+            >
+              <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-px" />
+              <span className="text-meta text-danger">{error}</span>
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading || !password}
-            className="w-full py-2.5 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-medium rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : 'Login'}
+          <button type="submit" disabled={loading || !password} className="btn btn-primary w-full h-10">
+            {loading
+              ? <span className="w-4 h-4 border-2 border-canvas/40 border-t-canvas rounded-full animate-spin" />
+              : 'Sign in'}
           </button>
         </form>
 
-        <div className="text-center mt-6 space-y-1">
-          <p className="text-subtle text-xs flex items-center justify-center gap-1">
-            Made with <Heart className="w-2.5 h-2.5 text-rose-400 fill-rose-400" /> by Siam
-          </p>
-          <p className="text-accent text-[10px] font-medium">VPS Manager v3.1</p>
-        </div>
+        <p className="text-label text-muted text-center mt-8">
+          VPS Manager v3.1
+        </p>
       </div>
     </div>
   );

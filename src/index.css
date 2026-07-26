@@ -35,7 +35,14 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #060e0d;
+  background: #070d0d;
+  color: #e8f2f0;
+}
+
+/* Machine data aligns in columns. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
 ::-webkit-scrollbar {
@@ -160,4 +167,135 @@ select {
   background: rgba(13, 25, 23, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+/* ───────────────────────────────────────────────────────────────
+ * Component primitives
+ *
+ * Defined once here so the redesign propagates across all pages
+ * instead of being re-declared inline in thousands of class strings.
+ * ─────────────────────────────────────────────────────────────── */
+@layer components {
+  /* Surfaces ---------------------------------------------------- */
+  .card {
+    @apply bg-surface border border-line rounded-card;
+  }
+
+  .card-head {
+    @apply flex items-center justify-between gap-3 px-4 h-12 border-b border-line;
+  }
+
+  .card-title {
+    @apply text-title font-semibold text-ink;
+  }
+
+  .card-body {
+    @apply p-4;
+  }
+
+  /* Section header: one title per page, with breathing room ------ */
+  .page-head {
+    @apply flex flex-wrap items-center justify-between gap-3 mb-5;
+  }
+
+  .page-title {
+    @apply text-page font-semibold text-ink;
+  }
+
+  .page-sub {
+    @apply text-meta text-muted mt-0.5;
+  }
+
+  /* Eyebrow / field labels -------------------------------------- */
+  .eyebrow {
+    @apply text-label font-medium uppercase text-muted;
+  }
+
+  /* Buttons ------------------------------------------------------
+   * One primary per view. Everything else is quiet. Destructive is
+   * the only place red appears.
+   */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 h-9 px-3
+           text-body font-medium rounded-control
+           transition-colors duration-150 whitespace-nowrap
+           disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-canvas hover:bg-accent-hover font-semibold;
+  }
+
+  .btn-quiet {
+    @apply bg-raised text-ink border border-line
+           hover:border-line-strong hover:bg-line/60;
+  }
+
+  .btn-ghost {
+    @apply text-muted hover:text-ink hover:bg-raised;
+  }
+
+  .btn-danger {
+    @apply bg-danger/10 text-danger border border-danger/25
+           hover:bg-danger/20 hover:border-danger/40;
+  }
+
+  .btn-sm {
+    @apply h-8 px-2.5 text-meta;
+  }
+
+  /* Icon-only control. Meets the 44px touch target on mobile. */
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-9 h-9 rounded-control
+           text-muted hover:text-ink hover:bg-raised
+           transition-colors duration-150 shrink-0
+           max-md:w-11 max-md:h-11;
+  }
+
+  /* Inputs ------------------------------------------------------- */
+  .field {
+    @apply w-full h-9 px-3 bg-canvas border border-line rounded-control
+           text-body text-ink placeholder-muted
+           focus:outline-none focus:border-accent
+           transition-colors duration-150;
+  }
+
+  /* Status pill: colour plus text, never colour alone ------------ */
+  .pill {
+    @apply inline-flex items-center gap-1.5 px-2 h-6 rounded-full
+           text-label font-medium border;
+  }
+
+  .pill-ok      { @apply bg-success/10 text-success border-success/25; }
+  .pill-warn    { @apply bg-warning/10 text-warning border-warning/25; }
+  .pill-bad     { @apply bg-danger/10  text-danger  border-danger/25; }
+  .pill-neutral { @apply bg-raised text-muted border-line; }
+
+  /* Data rows ---------------------------------------------------- */
+  .row {
+    @apply flex items-center justify-between gap-3 px-4 h-11
+           border-b border-line/70 last:border-0;
+  }
+
+  .row-key {
+    @apply text-meta text-muted shrink-0;
+  }
+
+  .row-val {
+    @apply text-meta text-ink font-mono tabular truncate;
+  }
+
+  /* Empty state -------------------------------------------------- */
+  .empty {
+    @apply flex flex-col items-center justify-center text-center
+           px-6 py-14 gap-1;
+  }
+
+  .empty-title {
+    @apply text-title font-semibold text-ink;
+  }
+
+  .empty-sub {
+    @apply text-body text-muted max-w-sm;
+  }
 }

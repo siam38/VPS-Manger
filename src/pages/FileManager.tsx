@@ -479,9 +479,9 @@ export default function FileManager() {
   return (
     <div className="h-full flex flex-col animate-fade-in" onClick={() => setContextMenu(null)}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 p-3 border-b border-dark-700 bg-dark-800/30 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:gap-1 max-sm:p-2">
+      <div className="flex flex-wrap items-center gap-2 p-3 border-b border-line bg-surface/30 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:gap-1 max-sm:p-2">
         <button onClick={() => navigate(currentPath.substring(0, currentPath.lastIndexOf('/')) || getAllowedBase(currentPath))}
-          className="p-1.5 rounded-lg hover:bg-dark-700 text-dark-300 hover:text-white transition">
+          className="p-1.5 rounded-lg hover:bg-raised text-muted hover:text-white transition">
           <ArrowLeft className="w-4 h-4" />
         </button>
         
@@ -492,10 +492,10 @@ export default function FileManager() {
           </button>
           {pathParts.map((part, i) => (
             <React.Fragment key={i}>
-              <ChevronRight className="w-3 h-3 text-dark-600 flex-shrink-0" />
+              <ChevronRight className="w-3 h-3 text-muted flex-shrink-0" />
               <button
                 onClick={() => navigate('/' + pathParts.slice(0, i + 1).join('/'))}
-                className="text-dark-300 hover:text-white transition truncate max-w-[120px] px-1 rounded"
+                className="text-muted hover:text-white transition truncate max-w-[120px] px-1 rounded"
               >
                 {part}
               </button>
@@ -507,7 +507,7 @@ export default function FileManager() {
           <select
             value={getAllowedBase(currentPath)}
             onChange={e => navigate(e.target.value)}
-            className="bg-dark-900 border border-dark-600 rounded-lg text-xs max-sm:text-[10px] text-white px-2 max-sm:px-1 py-1.5 max-sm:py-1 focus:outline-none focus:border-accent"
+            className="bg-canvas border border-line rounded-lg text-xs max-sm:text-[10px] text-white px-2 max-sm:px-1 py-1.5 max-sm:py-1 focus:outline-none focus:border-accent"
             title="Jump to base directory"
           >
             {ALLOWED_BASES.map(b => <option key={b} value={b}>{b}</option>)}
@@ -522,7 +522,7 @@ export default function FileManager() {
                 navigate('/home/ubuntu/.openclaw');
               }
             }}
-            className={`hidden md:inline-flex px-2 py-1.5 rounded-lg transition text-xs font-medium items-center gap-1.5 ${currentPath.startsWith('/home/ubuntu/.openclaw') ? 'bg-accent text-dark-900 hover:bg-accent/90' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
+            className={`hidden md:inline-flex px-2 py-1.5 rounded-lg transition text-xs font-medium items-center gap-1.5 ${currentPath.startsWith('/home/ubuntu/.openclaw') ? 'bg-accent text-canvas hover:bg-accent/90' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
             title={currentPath.startsWith('/home/ubuntu/.openclaw') ? 'Back to previous folder' : 'Open OpenClaw Workspace'}
           >
             OpenClaw
@@ -537,7 +537,7 @@ export default function FileManager() {
                 navigate('/home/ubuntu/.openclaw');
               }
             }}
-            className={`md:hidden p-1.5 rounded-lg transition ${currentPath.startsWith('/home/ubuntu/.openclaw') ? 'bg-accent text-dark-900 hover:bg-accent/90' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
+            className={`md:hidden p-1.5 rounded-lg transition ${currentPath.startsWith('/home/ubuntu/.openclaw') ? 'bg-accent text-canvas hover:bg-accent/90' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
             title={currentPath.startsWith('/home/ubuntu/.openclaw') ? 'Back' : 'OpenClaw'}
           >
             <Zap className="w-4 h-4" />
@@ -548,24 +548,24 @@ export default function FileManager() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search..."
-              className="w-24 sm:w-32 md:w-40 pl-7 pr-2 py-1.5 bg-dark-900 border border-dark-600 rounded-lg text-xs text-white focus:outline-none focus:border-accent"
+              className="w-24 sm:w-32 md:w-40 pl-7 pr-2 py-1.5 bg-canvas border border-line rounded-lg text-xs text-white focus:outline-none focus:border-accent"
             />
           </div>
           <button onClick={() => setShowHidden(!showHidden)}
-            className={`p-1.5 rounded-lg transition ${showHidden ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-dark-700'}`}
+            className={`p-1.5 rounded-lg transition ${showHidden ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-raised'}`}
             title="Toggle hidden files">
             {showHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
           </button>
           <button onClick={() => { setNewFolderMode(true); setNewFolderName(''); }}
-            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="New folder">
+            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="New folder">
             <FolderPlus className="w-4 h-4" />
           </button>
           <button onClick={() => { setNewFileMode(true); setNewFileName(''); setNewFileType('text'); }}
-            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="New file">
+            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="New file">
             <FilePlus className="w-4 h-4" />
           </button>
           <button onClick={() => uploadRef.current?.click()}
-            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Upload">
+            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Upload">
             <Upload className="w-4 h-4" />
           </button>
           {/* Select All / Deselect All */}
@@ -576,7 +576,7 @@ export default function FileManager() {
               setSelected(new Set(filteredItems.map(i => i.path)));
             }
           }}
-            className={`p-1.5 rounded-lg transition ${selected.size > 0 ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-dark-700'}`}
+            className={`p-1.5 rounded-lg transition ${selected.size > 0 ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-raised'}`}
             title={selected.size > 0 ? 'Deselect All' : 'Select All'}>
             <CheckSquare className="w-4 h-4" />
           </button>
@@ -592,7 +592,7 @@ export default function FileManager() {
               <Trash2 className="w-4 h-4" />
             </button>
           )}
-          <button onClick={() => load()} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
+          <button onClick={() => load()} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
@@ -603,14 +603,14 @@ export default function FileManager() {
       <div className="flex-1 overflow-auto">
         {/* New folder input */}
         {newFolderMode && (
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-dark-700 bg-dark-800/50">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-line bg-surface">
             <FolderPlus className="w-4 h-4 text-blue-400" />
             <input
               autoFocus
               value={newFolderName}
               onChange={e => setNewFolderName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleNewFolder(); if (e.key === 'Escape') setNewFolderMode(false); }}
-              className="flex-1 bg-dark-900 border border-dark-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-accent"
+              className="flex-1 bg-canvas border border-line rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-accent"
               placeholder="Folder name..."
             />
             <button onClick={handleNewFolder} className="p-1 text-green-400"><Check className="w-4 h-4" /></button>
@@ -620,7 +620,7 @@ export default function FileManager() {
 
         {/* New file input */}
         {newFileMode && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 px-4 py-2 border-b border-dark-700 bg-dark-800/50">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 px-4 py-2 border-b border-line bg-surface">
             <div className="flex items-center gap-2 sm:hidden">
               <FilePlus className="w-4 h-4 text-green-400" />
               <span className="text-xs text-muted">New File</span>
@@ -630,14 +630,14 @@ export default function FileManager() {
               value={newFileName}
               onChange={e => setNewFileName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleNewFile(); if (e.key === 'Escape') setNewFileMode(false); }}
-              className="flex-1 bg-dark-900 border border-dark-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent min-w-0"
+              className="flex-1 bg-canvas border border-line rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent min-w-0"
               placeholder="Enter filename..."
             />
             <div className="flex items-center gap-2">
               <select
                 value={newFileType}
                 onChange={e => setNewFileType(e.target.value)}
-                className="bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent min-w-[120px] font-medium"
+                className="bg-canvas border border-line rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent min-w-[120px] font-medium"
               >
                 <option value="text">📄 Plain Text</option>
                 <option value="html">🌐 HTML</option>
@@ -649,7 +649,7 @@ export default function FileManager() {
               <button onClick={handleNewFile} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition" title="Create file">
                 <Check className="w-4 h-4" />
               </button>
-              <button onClick={() => setNewFileMode(false)} className="p-2 bg-dark-700 text-muted rounded-lg hover:bg-dark-600 hover:text-white transition" title="Cancel">
+              <button onClick={() => setNewFileMode(false)} className="p-2 bg-raised text-muted rounded-lg hover:bg-raised hover:text-white transition" title="Cancel">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -657,7 +657,7 @@ export default function FileManager() {
         )}
 
         <table className="w-full">
-          <thead className="sticky top-0 bg-dark-800/90 backdrop-blur text-xs text-muted border-b border-dark-700">
+          <thead className="sticky top-0 bg-surface/90 backdrop-blur text-xs text-muted border-b border-line">
             <tr>
               <th className="w-8 px-2 py-2"></th>
               <th className="text-left px-2 py-2 font-medium">Name</th>
@@ -674,7 +674,7 @@ export default function FileManager() {
               return (
                 <tr
                   key={item.path}
-                  className={`group border-b border-dark-700/50 hover:bg-dark-800/50 cursor-pointer transition
+                  className={`group border-b border-line hover:bg-surface cursor-pointer transition
                     ${isSelected ? 'bg-accent/5' : ''}`}
                   onClick={() => {
                     if (item.isDirectory) navigate(item.path);
@@ -698,7 +698,7 @@ export default function FileManager() {
                         setSelected(next);
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-3.5 h-3.5 rounded border-dark-500 accent-accent"
+                      className="w-3.5 h-3.5 rounded border-line-strong accent-accent"
                     />
                   </td>
                   <td className="px-2 py-1.5">
@@ -712,10 +712,10 @@ export default function FileManager() {
                           onKeyDown={e => { if (e.key === 'Enter') handleRename(item.path); if (e.key === 'Escape') setRenaming(null); }}
                           onBlur={() => handleRename(item.path)}
                           onClick={e => e.stopPropagation()}
-                          className="flex-1 bg-dark-900 border border-accent rounded px-1.5 py-0.5 text-sm text-white focus:outline-none"
+                          className="flex-1 bg-canvas border border-accent rounded px-1.5 py-0.5 text-sm text-white focus:outline-none"
                         />
                       ) : (
-                        <span className="text-sm text-dark-100 truncate">{item.name}</span>
+                        <span className="text-sm text-ink truncate">{item.name}</span>
                       )}
                     </div>
                   </td>
@@ -761,7 +761,7 @@ export default function FileManager() {
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-dark-800 border border-dark-600 rounded-xl shadow-2xl py-1 min-w-[160px] animate-fade-in"
+          className="fixed z-50 bg-surface border border-line rounded-control shadow-2xl py-1 min-w-[160px] animate-fade-in"
           style={{ top: Math.min(contextMenu.y, window.innerHeight - 300), left: Math.min(contextMenu.x, window.innerWidth - 180) }}
           onClick={e => e.stopPropagation()}
         >
@@ -784,7 +784,7 @@ export default function FileManager() {
             setClipboard({ items: [contextMenu.item.path], mode: 'cut' });
             setContextMenu(null);
           }} />
-          <div className="border-t border-dark-700 my-1" />
+          <div className="border-t border-line my-1" />
           <CtxBtn icon={Trash2} label="Delete" danger onClick={() => {
             handleDelete([contextMenu.item.path]);
             setContextMenu(null);
@@ -794,13 +794,13 @@ export default function FileManager() {
 
       {/* Inline Editor Modal */}
       {editingFile && (
-        <div className="fixed inset-0 z-[90] flex flex-col bg-dark-900/95 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[90] flex flex-col bg-canvas/95 backdrop-blur-sm animate-fade-in">
           {/* Editor Header */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 px-3 md:px-4 py-2 border-b border-dark-700 bg-dark-800/80 flex-shrink-0">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 px-3 md:px-4 py-2 border-b border-line bg-surface/80 flex-shrink-0">
             <div className="flex items-center gap-2 flex-1">
               <Code2 className="w-4 h-4 text-accent flex-shrink-0" />
               <span className="text-sm text-white font-medium truncate flex-1">{editingFile.name}</span>
-              <span className="text-[10px] text-subtle uppercase hidden sm:inline px-2 py-0.5 bg-dark-900 rounded">{editingFile.language}</span>
+              <span className="text-[10px] text-subtle uppercase hidden sm:inline px-2 py-0.5 bg-canvas rounded">{editingFile.language}</span>
               {editorSaved && (
                 <span className="text-[10px] text-green-400 flex items-center gap-1 animate-fade-in px-2 py-0.5 bg-green-400/10 rounded">
                   <Check className="w-3 h-3" /> Saved
@@ -811,32 +811,32 @@ export default function FileManager() {
               )}
             </div>
             <div className="flex items-center gap-1 overflow-x-auto">
-              <button onClick={increaseFontSize} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Increase font size">
+              <button onClick={increaseFontSize} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Increase font size">
                 <span className="text-xs font-bold">A+</span>
               </button>
-              <button onClick={decreaseFontSize} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Decrease font size">
+              <button onClick={decreaseFontSize} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Decrease font size">
                 <span className="text-xs font-bold">A-</span>
               </button>
-              <div className="w-px h-6 bg-dark-700 mx-1" />
+              <div className="w-px h-6 bg-raised mx-1" />
               <button onClick={() => { setEditorLineNumbers(!editorLineNumbers); updateEditorOption('lineNumbers', editorLineNumbers ? 'off' : 'on'); }}
-                className={`p-1.5 rounded-lg transition ${editorLineNumbers ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-dark-700'}`} title="Toggle line numbers">
+                className={`p-1.5 rounded-lg transition ${editorLineNumbers ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-raised'}`} title="Toggle line numbers">
                 <span className="text-xs font-mono">123</span>
               </button>
               <button onClick={() => { setEditorWordWrap(!editorWordWrap); updateEditorOption('wordWrap', editorWordWrap ? 'off' : 'on'); }}
-                className={`p-1.5 rounded-lg transition ${editorWordWrap ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-dark-700'}`} title="Toggle word wrap">
+                className={`p-1.5 rounded-lg transition ${editorWordWrap ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-raised'}`} title="Toggle word wrap">
                 <span className="text-xs"><span className="block w-3 h-0.5 bg-current mb-0.5" /><span className="block w-2 h-0.5 bg-current" /></span>
               </button>
               <button onClick={() => { setEditorMinimap(!editorMinimap); updateEditorOption('minimap', { enabled: editorMinimap }); }}
-                className={`p-1.5 rounded-lg transition ${editorMinimap ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-dark-700'}`} title="Toggle minimap">
+                className={`p-1.5 rounded-lg transition ${editorMinimap ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-raised'}`} title="Toggle minimap">
                 <div className="w-3 h-3 border border-current rounded-sm" />
               </button>
-              <div className="w-px h-6 bg-dark-700 mx-1" />
-              <button onClick={toggleFullscreen} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Toggle fullscreen">
+              <div className="w-px h-6 bg-raised mx-1" />
+              <button onClick={toggleFullscreen} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Toggle fullscreen">
                 {editorFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </button>
-              <div className="w-px h-6 bg-dark-700 mx-1" />
+              <div className="w-px h-6 bg-raised mx-1" />
               <button onClick={() => { if (editorRef.current) { const monaco = monacoRef.current || (window as any).monaco; if (monaco) { const model = editorRef.current.getModel(); if (model) { const range = model.getFullModelRange(); editorRef.current.setSelection(range); editorRef.current.focus(); } } } }}
-                className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Select All">
+                className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Select All">
                 <CheckSquare className="w-4 h-4" />
               </button>
               <button onClick={saveEditorFile} disabled={!editorModified || editorSaving}
@@ -854,10 +854,10 @@ export default function FileManager() {
           <div ref={editorContainerRef} className="flex-1" />
           
           {/* Editor Status Bar */}
-          <div className="flex items-center justify-between px-4 py-1.5 border-t border-dark-700 bg-dark-800/50 text-[11px] text-muted flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-1.5 border-t border-line bg-surface text-[11px] text-muted flex-shrink-0">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /><span>{editingFile.language}</span></span>
-              <span className="text-dark-600">|</span>
+              <span className="text-muted">|</span>
               <span className="flex items-center gap-1.5"><Terminal className="w-3.5 h-3.5" /><span>UTF-8</span></span>
             </div>
             <div className="flex items-center gap-4">
@@ -870,7 +870,7 @@ export default function FileManager() {
       )}
 
       {/* Status bar */}
-      <div className="px-4 py-1.5 border-t border-dark-700 bg-dark-800/30 text-xs text-muted flex justify-between items-center">
+      <div className="px-4 py-1.5 border-t border-line bg-surface/30 text-xs text-muted flex justify-between items-center">
         <span>{filteredItems.length} items{selected.size > 0 ? ` \u00b7 ${selected.size} selected` : ''}</span>
         <input
           value={currentPath}
@@ -889,7 +889,7 @@ function CtxBtn({ icon: Icon, label, onClick, danger }: { icon: any; label: stri
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition
-        ${danger ? 'text-red-400 hover:bg-red-400/10' : 'text-dark-200 hover:bg-dark-700'}`}
+        ${danger ? 'text-red-400 hover:bg-red-400/10' : 'text-ink hover:bg-raised'}`}
     >
       <Icon className="w-3.5 h-3.5" />
       {label}

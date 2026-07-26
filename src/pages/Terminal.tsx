@@ -185,19 +185,19 @@ export default function Terminal() {
   return (
     <div className="h-full flex flex-col animate-fade-in">
       {/* Tab bar */}
-      <div className="flex items-center bg-dark-800/50 border-b border-dark-700 overflow-x-auto">
+      <div className="flex items-center bg-surface border-b border-line overflow-x-auto">
         {tabs.map(tab => (
           <div
             key={tab.id}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer border-r border-dark-700 min-w-0 transition
-              ${activeTab === tab.id ? 'bg-dark-900 text-white' : 'text-muted hover:text-dark-200 hover:bg-dark-800'}`}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer border-r border-line min-w-0 transition
+              ${activeTab === tab.id ? 'bg-canvas text-white' : 'text-muted hover:text-ink hover:bg-surface'}`}
             onClick={() => setActiveTab(tab.id)}
           >
             <span className="truncate">{tab.label}</span>
             {tabs.length > 1 && (
               <button
                 onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-                className="p-0.5 rounded hover:bg-dark-600 text-subtle hover:text-white"
+                className="p-0.5 rounded hover:bg-raised text-subtle hover:text-white"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -206,7 +206,7 @@ export default function Terminal() {
         ))}
         <button
           onClick={createTab}
-          className="px-2 py-2 text-muted hover:text-white hover:bg-dark-800 transition"
+          className="px-2 py-2 text-muted hover:text-white hover:bg-surface transition"
         >
           <Plus className="w-4 h-4" />
         </button>
