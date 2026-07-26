@@ -75,7 +75,7 @@ export default function Processes() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 p-3 border-b border-dark-700 bg-dark-800/30">
         <div className="relative flex-1 min-w-[150px] max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search processes..."
             className="w-full pl-8 pr-3 py-1.5 bg-dark-900 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent" />
         </div>
@@ -83,16 +83,16 @@ export default function Processes() {
           className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${autoRefresh ? 'bg-accent/10 text-accent border border-accent/20' : 'bg-dark-700 text-dark-300 border border-dark-600'}`}>
           Auto: {autoRefresh ? 'ON' : 'OFF'}
         </button>
-        <button onClick={load} className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition">
+        <button onClick={load} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
-        <span className="text-xs text-dark-500">{sorted.length} processes</span>
+        <span className="text-xs text-subtle">{sorted.length} processes</span>
       </div>
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full">
-          <thead className="sticky top-0 bg-dark-800/95 backdrop-blur text-xs text-dark-400 border-b border-dark-700 z-10">
+          <thead className="sticky top-0 bg-dark-800/95 backdrop-blur text-xs text-muted border-b border-dark-700 z-10">
             <tr>
               <th className="text-left px-3 py-2 font-medium cursor-pointer select-none" onClick={() => toggleSort('pid')}>
                 <span className="flex items-center gap-1">PID <SortIcon col="pid" /></span>
@@ -114,7 +114,7 @@ export default function Processes() {
             {sorted.map(proc => (
               <tr key={`${proc.pid}-${proc.command}`} className="border-b border-dark-700/30 hover:bg-dark-800/50 transition text-xs">
                 <td className="px-3 py-1.5 font-mono text-dark-300">{proc.pid}</td>
-                <td className="px-3 py-1.5 text-dark-400 hidden sm:table-cell">{proc.user}</td>
+                <td className="px-3 py-1.5 text-muted hidden sm:table-cell">{proc.user}</td>
                 <td className="px-3 py-1.5 text-right">
                   <span className={`font-mono ${proc.cpu > 50 ? 'text-red-400' : proc.cpu > 20 ? 'text-amber-400' : 'text-dark-300'}`}>
                     {proc.cpu.toFixed(1)}
@@ -130,7 +130,7 @@ export default function Processes() {
                 </td>
                 <td className="px-2 py-1.5 text-center">
                   <button onClick={() => setKillDialog(proc)}
-                    className="p-1 rounded text-dark-500 hover:text-red-400 hover:bg-red-400/10 transition" title="Kill process">
+                    className="p-1 rounded text-subtle hover:text-red-400 hover:bg-red-400/10 transition" title="Kill process">
                     <Skull className="w-3.5 h-3.5" />
                   </button>
                 </td>
@@ -147,12 +147,12 @@ export default function Processes() {
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-amber-400" />
               <h3 className="text-white font-medium">Kill Process</h3>
-              <button onClick={() => setKillDialog(null)} className="ml-auto text-dark-400 hover:text-white">
+              <button onClick={() => setKillDialog(null)} className="ml-auto text-muted hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <p className="text-dark-300 text-sm mb-1">PID: <span className="text-white font-mono">{killDialog.pid}</span></p>
-            <p className="text-dark-400 text-xs font-mono mb-4 truncate">{killDialog.command}</p>
+            <p className="text-muted text-xs font-mono mb-4 truncate">{killDialog.command}</p>
             <div className="flex gap-2">
               <button onClick={() => handleKill(killDialog.pid, 'TERM')}
                 className="flex-1 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-500/20 transition">

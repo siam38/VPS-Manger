@@ -154,44 +154,44 @@ function SummaryBar({ apps }: { apps: PM2App[] }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 px-3 py-2.5">
       <div className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
-        <Database className="w-3.5 h-3.5 text-dark-400" />
+        <Database className="w-3.5 h-3.5 text-muted" />
         <div>
-          <div className="text-[10px] text-dark-500 uppercase">Total</div>
+          <div className="text-[10px] text-subtle uppercase">Total</div>
           <div className="text-sm font-semibold text-white">{apps.length}</div>
         </div>
       </div>
       <div className="flex items-center gap-2 px-3 py-2 bg-green-400/5 rounded-lg border border-green-400/10">
         <Circle className="w-3 h-3 fill-green-400 text-green-400" />
         <div>
-          <div className="text-[10px] text-dark-500 uppercase">Online</div>
+          <div className="text-[10px] text-subtle uppercase">Online</div>
           <div className="text-sm font-semibold text-green-400">{online}</div>
         </div>
       </div>
       <div className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
-        <Square className="w-3 h-3 text-dark-500" />
+        <Square className="w-3 h-3 text-subtle" />
         <div>
-          <div className="text-[10px] text-dark-500 uppercase">Stopped</div>
-          <div className="text-sm font-semibold text-dark-400">{stopped}</div>
+          <div className="text-[10px] text-subtle uppercase">Stopped</div>
+          <div className="text-sm font-semibold text-muted">{stopped}</div>
         </div>
       </div>
       <div className="flex items-center gap-2 px-3 py-2 bg-red-400/5 rounded-lg border border-red-400/10">
         <AlertTriangle className="w-3 h-3 text-red-400" />
         <div>
-          <div className="text-[10px] text-dark-500 uppercase">Errored</div>
+          <div className="text-[10px] text-subtle uppercase">Errored</div>
           <div className="text-sm font-semibold text-red-400">{errored}</div>
         </div>
       </div>
       <div className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
         <Cpu className="w-3.5 h-3.5 text-cyan-400" />
         <div>
-          <div className="text-[10px] text-dark-500 uppercase">CPU</div>
+          <div className="text-[10px] text-subtle uppercase">CPU</div>
           <div className="text-sm font-semibold text-cyan-400">{totalCpu.toFixed(1)}%</div>
         </div>
       </div>
       <div className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
         <MemoryStick className="w-3.5 h-3.5 text-purple-400" />
         <div>
-          <div className="text-[10px] text-dark-500 uppercase">Memory</div>
+          <div className="text-[10px] text-subtle uppercase">Memory</div>
           <div className="text-sm font-semibold text-purple-400">{formatBytes(totalMem)}</div>
         </div>
       </div>
@@ -301,10 +301,10 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
             </div>
             <div>
               <h3 className="text-sm font-semibold text-white">New PM2 Application</h3>
-              <p className="text-[11px] text-dark-400">Step {step} of 4</p>
+              <p className="text-[11px] text-muted">Step {step} of 4</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -330,7 +330,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <h4 className="text-xs font-medium text-dark-300 uppercase tracking-wider">Select Project Folder</h4>
               
               {/* Breadcrumb */}
-              <div className="flex items-center gap-1 text-xs text-dark-400 flex-wrap">
+              <div className="flex items-center gap-1 text-xs text-muted flex-wrap">
                 <button onClick={() => loadDir('/')} className="hover:text-accent transition">/</button>
                 {pathSegments.map((seg, i) => (
                   <React.Fragment key={i}>
@@ -350,7 +350,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                 {browseData?.parent && browseData.parent !== browseData.path && (
                   <button
                     onClick={() => loadDir(browseData.parent)}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-dark-700/50 text-dark-400 text-xs border-b border-dark-700/50 transition"
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-dark-700/50 text-muted text-xs border-b border-dark-700/50 transition"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>..</span>
@@ -361,7 +361,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     <Loader2 className="w-5 h-5 text-accent animate-spin" />
                   </div>
                 ) : browseData?.dirs.length === 0 ? (
-                  <div className="text-center py-6 text-dark-500 text-xs">No subdirectories</div>
+                  <div className="text-center py-6 text-subtle text-xs">No subdirectories</div>
                 ) : (
                   browseData?.dirs.map(dir => (
                     <button
@@ -387,7 +387,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               {/* Project files detected */}
               {projectFiles.length > 0 && (
                 <div className="mt-2">
-                  <div className="text-[10px] text-dark-500 uppercase mb-1.5">Detected Project Files</div>
+                  <div className="text-[10px] text-subtle uppercase mb-1.5">Detected Project Files</div>
                   <div className="flex flex-wrap gap-1.5">
                     {projectFiles.map(f => (
                       <span key={f.path} className="px-2 py-1 bg-accent/10 text-accent text-[10px] rounded-md border border-accent/20">
@@ -398,7 +398,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                 </div>
               )}
 
-              <div className="text-xs text-dark-500">
+              <div className="text-xs text-subtle">
                 Selected: <span className="text-dark-300 font-mono">{selectedFolder || browsePath}</span>
               </div>
             </div>
@@ -408,8 +408,8 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
           {step === 2 && (
             <div className="space-y-3">
               <h4 className="text-xs font-medium text-dark-300 uppercase tracking-wider">Select Start File</h4>
-              <p className="text-[11px] text-dark-500">
-                From: <span className="font-mono text-dark-400">{selectedFolder || browsePath}</span>
+              <p className="text-[11px] text-subtle">
+                From: <span className="font-mono text-muted">{selectedFolder || browsePath}</span>
               </p>
 
               {projectFiles.length > 0 && (
@@ -426,14 +426,14 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     >
                       <FileCode className="w-3.5 h-3.5" />
                       <span className="font-mono">{f.name}</span>
-                      <span className="ml-auto text-[10px] text-dark-500 uppercase">{f.type}</span>
+                      <span className="ml-auto text-[10px] text-subtle uppercase">{f.type}</span>
                       {selectedFile === f.name && <Check className="w-3.5 h-3.5 text-accent" />}
                     </button>
                   ))}
                 </div>
               )}
 
-              <div className="flex items-center gap-2 text-dark-500 text-[11px]">
+              <div className="flex items-center gap-2 text-subtle text-[11px]">
                 <div className="flex-1 h-px bg-dark-700" />
                 <span>or enter manually</span>
                 <div className="flex-1 h-px bg-dark-700" />
@@ -456,7 +456,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* App Name */}
                 <div>
-                  <label className="text-[11px] text-dark-400 block mb-1">App Name</label>
+                  <label className="text-[11px] text-muted block mb-1">App Name</label>
                   <input
                     value={appName}
                     onChange={e => setAppName(e.target.value)}
@@ -467,7 +467,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
                 {/* Interpreter */}
                 <div>
-                  <label className="text-[11px] text-dark-400 block mb-1">Interpreter</label>
+                  <label className="text-[11px] text-muted block mb-1">Interpreter</label>
                   <select
                     value={interpreter}
                     onChange={e => setInterpreter(e.target.value)}
@@ -484,14 +484,14 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
               {/* Exec Mode */}
               <div>
-                <label className="text-[11px] text-dark-400 block mb-1.5">Execution Mode</label>
+                <label className="text-[11px] text-muted block mb-1.5">Execution Mode</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setExecMode('fork')}
                     className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-medium transition ${
                       execMode === 'fork'
                         ? 'bg-accent/10 border-accent/30 text-accent'
-                        : 'bg-dark-800 border-dark-600 text-dark-400 hover:border-dark-500'
+                        : 'bg-dark-800 border-dark-600 text-muted hover:border-dark-500'
                     }`}
                   >
                     <Terminal className="w-3.5 h-3.5" />
@@ -502,7 +502,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-medium transition ${
                       execMode === 'cluster'
                         ? 'bg-accent/10 border-accent/30 text-accent'
-                        : 'bg-dark-800 border-dark-600 text-dark-400 hover:border-dark-500'
+                        : 'bg-dark-800 border-dark-600 text-muted hover:border-dark-500'
                     }`}
                   >
                     <Globe className="w-3.5 h-3.5" />
@@ -514,7 +514,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               {/* Instances (cluster only) */}
               {execMode === 'cluster' && (
                 <div>
-                  <label className="text-[11px] text-dark-400 block mb-1">Instances</label>
+                  <label className="text-[11px] text-muted block mb-1">Instances</label>
                   <input
                     value={instances}
                     onChange={e => setInstances(e.target.value)}
@@ -528,12 +528,12 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex items-center gap-2 px-3 py-2.5 bg-dark-800 border border-dark-600 rounded-lg cursor-pointer hover:border-dark-500 transition">
                   <input type="checkbox" checked={watchMode} onChange={e => setWatchMode(e.target.checked)} className="accent-cyan-400" />
-                  <Eye className="w-3.5 h-3.5 text-dark-400" />
+                  <Eye className="w-3.5 h-3.5 text-muted" />
                   <span className="text-xs text-dark-300">Watch Mode</span>
                 </label>
                 <label className="flex items-center gap-2 px-3 py-2.5 bg-dark-800 border border-dark-600 rounded-lg cursor-pointer hover:border-dark-500 transition">
                   <input type="checkbox" checked={autoRestart} onChange={e => setAutoRestart(e.target.checked)} className="accent-cyan-400" />
-                  <RotateCcw className="w-3.5 h-3.5 text-dark-400" />
+                  <RotateCcw className="w-3.5 h-3.5 text-muted" />
                   <span className="text-xs text-dark-300">Auto Restart</span>
                 </label>
               </div>
@@ -545,7 +545,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     <Zap className="w-4 h-4 text-cyan-400" />
                     <div>
                       <span className="text-xs text-white font-medium">Smart Restart</span>
-                      <p className="text-[10px] text-dark-500">Restart only from File Manager edits & Git pulls</p>
+                      <p className="text-[10px] text-subtle">Restart only from File Manager edits & Git pulls</p>
                     </div>
                   </div>
                   <input type="checkbox" checked={smartRestartCreate} onChange={e => setSmartRestartCreate(e.target.checked)} className="accent-cyan-400 w-4 h-4" />
@@ -568,14 +568,14 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                 <div className="space-y-3">
                   {/* Watch Type Toggle */}
                   <div>
-                    <label className="text-[11px] text-dark-400 block mb-1.5">Watch Type</label>
+                    <label className="text-[11px] text-muted block mb-1.5">Watch Type</label>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setWatchType('all')}
                         className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-medium transition ${
                           watchType === 'all'
                             ? 'bg-accent/10 border-accent/30 text-accent'
-                            : 'bg-dark-800 border-dark-600 text-dark-400 hover:border-dark-500'
+                            : 'bg-dark-800 border-dark-600 text-muted hover:border-dark-500'
                         }`}
                       >
                         <Eye className="w-3.5 h-3.5" />
@@ -586,7 +586,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                         className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-medium transition ${
                           watchType === 'only'
                             ? 'bg-accent/10 border-accent/30 text-accent'
-                            : 'bg-dark-800 border-dark-600 text-dark-400 hover:border-dark-500'
+                            : 'bg-dark-800 border-dark-600 text-muted hover:border-dark-500'
                         }`}
                       >
                         <Target className="w-3.5 h-3.5" />
@@ -598,28 +598,28 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                   {/* Watch All → Ignore patterns */}
                   {watchType === 'all' && (
                     <div>
-                      <label className="text-[11px] text-dark-400 block mb-1">Ignore Patterns</label>
+                      <label className="text-[11px] text-muted block mb-1">Ignore Patterns</label>
                       <input
                         value={ignoreWatch}
                         onChange={e => setIgnoreWatch(e.target.value)}
                         placeholder="Extra patterns (comma-sep), e.g. data/, *.json"
                         className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent"
                       />
-                      <p className="text-[10px] text-dark-500 mt-1">Auto-ignored: node_modules, .git, *.db, *.sqlite, *.log, logs</p>
+                      <p className="text-[10px] text-subtle mt-1">Auto-ignored: node_modules, .git, *.db, *.sqlite, *.log, logs</p>
                     </div>
                   )}
 
                   {/* Watch Only → Specific files/folders */}
                   {watchType === 'only' && (
                     <div>
-                      <label className="text-[11px] text-dark-400 block mb-1">Watch These Only</label>
+                      <label className="text-[11px] text-muted block mb-1">Watch These Only</label>
                       <input
                         value={watchOnly}
                         onChange={e => setWatchOnly(e.target.value)}
                         placeholder="Files or folders (comma-sep), e.g. src/, index.js, config/"
                         className="w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent"
                       />
-                      <p className="text-[10px] text-dark-500 mt-1">Only restarts when these files/folders change</p>
+                      <p className="text-[10px] text-subtle mt-1">Only restarts when these files/folders change</p>
                     </div>
                   )}
                 </div>
@@ -627,7 +627,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
               {/* Max Memory Restart */}
               <div>
-                <label className="text-[11px] text-dark-400 block mb-1">Max Memory Restart</label>
+                <label className="text-[11px] text-muted block mb-1">Max Memory Restart</label>
                 <input
                   value={maxMemRestart}
                   onChange={e => setMaxMemRestart(e.target.value)}
@@ -638,7 +638,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
               {/* Cron Restart */}
               <div>
-                <label className="text-[11px] text-dark-400 block mb-1">Cron Restart (optional)</label>
+                <label className="text-[11px] text-muted block mb-1">Cron Restart (optional)</label>
                 <input
                   value={cronRestart}
                   onChange={e => setCronRestart(e.target.value)}
@@ -649,7 +649,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
               {/* Node Args */}
               <div>
-                <label className="text-[11px] text-dark-400 block mb-1">Node Args (optional)</label>
+                <label className="text-[11px] text-muted block mb-1">Node Args (optional)</label>
                 <input
                   value={nodeArgs}
                   onChange={e => setNodeArgs(e.target.value)}
@@ -661,7 +661,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               {/* Env Variables */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] text-dark-400">Environment Variables</label>
+                  <label className="text-[11px] text-muted">Environment Variables</label>
                   <button
                     onClick={() => setEnvVars([...envVars, { key: '', value: '' }])}
                     className="text-[10px] text-accent hover:underline"
@@ -693,7 +693,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     />
                     <button
                       onClick={() => setEnvVars(envVars.filter((_, j) => j !== i))}
-                      className="p-1.5 text-dark-500 hover:text-red-400 transition"
+                      className="p-1.5 text-subtle hover:text-red-400 transition"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -710,55 +710,55 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
               
               <div className="bg-dark-800/50 rounded-lg border border-dark-700/50 divide-y divide-dark-700/50">
                 <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-xs text-dark-500">Name</span>
+                  <span className="text-xs text-subtle">Name</span>
                   <span className="text-xs text-white font-medium">{appName}</span>
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-xs text-dark-500">Script</span>
+                  <span className="text-xs text-subtle">Script</span>
                   <span className="text-xs text-accent font-mono">{getStartFile()}</span>
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-xs text-dark-500">Directory</span>
+                  <span className="text-xs text-subtle">Directory</span>
                   <span className="text-xs text-dark-300 font-mono truncate max-w-[60%]">{selectedFolder || browsePath}</span>
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-xs text-dark-500">Mode</span>
+                  <span className="text-xs text-subtle">Mode</span>
                   <span className="text-xs text-dark-300">{execMode}{execMode === 'cluster' ? ` × ${instances}` : ''}</span>
                 </div>
                 <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-xs text-dark-500">Interpreter</span>
+                  <span className="text-xs text-subtle">Interpreter</span>
                   <span className="text-xs text-dark-300">{interpreter}</span>
                 </div>
                 {watchMode && (
                   <div className="flex justify-between px-4 py-2.5">
-                    <span className="text-xs text-dark-500">Watch</span>
+                    <span className="text-xs text-subtle">Watch</span>
                     <span className="text-xs text-green-400">Enabled</span>
                   </div>
                 )}
                 {maxMemRestart && (
                   <div className="flex justify-between px-4 py-2.5">
-                    <span className="text-xs text-dark-500">Max Memory</span>
+                    <span className="text-xs text-subtle">Max Memory</span>
                     <span className="text-xs text-dark-300">{maxMemRestart}</span>
                   </div>
                 )}
                 {cronRestart && (
                   <div className="flex justify-between px-4 py-2.5">
-                    <span className="text-xs text-dark-500">Cron Restart</span>
+                    <span className="text-xs text-subtle">Cron Restart</span>
                     <span className="text-xs text-dark-300 font-mono">{cronRestart}</span>
                   </div>
                 )}
                 {nodeArgs && (
                   <div className="flex justify-between px-4 py-2.5">
-                    <span className="text-xs text-dark-500">Node Args</span>
+                    <span className="text-xs text-subtle">Node Args</span>
                     <span className="text-xs text-dark-300 font-mono">{nodeArgs}</span>
                   </div>
                 )}
                 {envVars.filter(v => v.key).length > 0 && (
                   <div className="px-4 py-2.5">
-                    <span className="text-xs text-dark-500 block mb-1">Environment</span>
+                    <span className="text-xs text-subtle block mb-1">Environment</span>
                     {envVars.filter(v => v.key).map((v, i) => (
                       <div key={i} className="text-[11px] font-mono text-dark-300">
-                        <span className="text-cyan-400">{v.key}</span>=<span className="text-dark-400">{v.value}</span>
+                        <span className="text-cyan-400">{v.key}</span>=<span className="text-muted">{v.value}</span>
                       </div>
                     ))}
                   </div>
@@ -772,7 +772,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
         <div className="flex items-center justify-between px-5 py-3 border-t border-dark-700 bg-dark-800/30">
           <button
             onClick={() => step > 1 ? setStep(step - 1) : onClose()}
-            className="px-3 py-1.5 text-xs text-dark-400 hover:text-white transition"
+            className="px-3 py-1.5 text-xs text-muted hover:text-white transition"
           >
             {step > 1 ? '← Back' : 'Cancel'}
           </button>
@@ -851,10 +851,10 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
             <div className={`w-2.5 h-2.5 rounded-full ${detail?.status === 'online' ? 'bg-green-400' : detail?.status === 'errored' ? 'bg-red-400' : 'bg-dark-500'}`} />
             <div>
               <h3 className="text-sm font-semibold text-white">{appName}</h3>
-              <p className="text-[11px] text-dark-400">{detail?.status || 'loading...'} · ID {detail?.pm_id}</p>
+              <p className="text-[11px] text-muted">{detail?.status || 'loading...'} · ID {detail?.pm_id}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -876,9 +876,9 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
                 { label: 'Instances', value: String(detail.instances || 1), icon: Globe },
               ].map(item => (
                 <div key={item.label} className="flex items-center gap-2 px-3 py-2 bg-dark-800/50 rounded-lg border border-dark-700/50">
-                  <item.icon className="w-3.5 h-3.5 text-dark-500" />
+                  <item.icon className="w-3.5 h-3.5 text-subtle" />
                   <div>
-                    <div className="text-[10px] text-dark-500">{item.label}</div>
+                    <div className="text-[10px] text-subtle">{item.label}</div>
                     <div className="text-xs text-white font-medium">{item.value}</div>
                   </div>
                 </div>
@@ -887,22 +887,22 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
 
             {/* Paths */}
             <div className="space-y-1.5">
-              <div className="text-[10px] text-dark-500 uppercase">Paths</div>
+              <div className="text-[10px] text-subtle uppercase">Paths</div>
               <div className="bg-dark-800/50 rounded-lg border border-dark-700/50 divide-y divide-dark-700/30 font-mono text-[11px]">
                 <div className="px-3 py-2 flex items-start gap-2">
-                  <span className="text-dark-500 shrink-0 w-12">Script</span>
+                  <span className="text-subtle shrink-0 w-12">Script</span>
                   <span className="text-dark-300 break-all">{detail.pm_exec_path}</span>
                 </div>
                 <div className="px-3 py-2 flex items-start gap-2">
-                  <span className="text-dark-500 shrink-0 w-12">CWD</span>
+                  <span className="text-subtle shrink-0 w-12">CWD</span>
                   <span className="text-dark-300 break-all">{detail.pm_cwd}</span>
                 </div>
                 <div className="px-3 py-2 flex items-start gap-2">
-                  <span className="text-dark-500 shrink-0 w-12">Out</span>
+                  <span className="text-subtle shrink-0 w-12">Out</span>
                   <span className="text-dark-300 break-all">{detail.pm_out_log_path}</span>
                 </div>
                 <div className="px-3 py-2 flex items-start gap-2">
-                  <span className="text-dark-500 shrink-0 w-12">Err</span>
+                  <span className="text-subtle shrink-0 w-12">Err</span>
                   <span className="text-dark-300 break-all">{detail.pm_err_log_path}</span>
                 </div>
               </div>
@@ -913,7 +913,7 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
               <div>
                 <button
                   onClick={() => setShowEnv(!showEnv)}
-                  className="flex items-center gap-1.5 text-[10px] text-dark-500 uppercase hover:text-dark-300 transition"
+                  className="flex items-center gap-1.5 text-[10px] text-subtle uppercase hover:text-dark-300 transition"
                 >
                   {showEnv ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                   Environment Variables ({envEntries.length})
@@ -923,7 +923,7 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
                     {envEntries.map(([k, v]) => (
                       <div key={k} className="flex px-3 py-1.5 text-[11px] font-mono border-b border-dark-700/20 last:border-0">
                         <span className="text-cyan-400 shrink-0 mr-2">{k}</span>
-                        <span className="text-dark-400 truncate">{String(v)}</span>
+                        <span className="text-muted truncate">{String(v)}</span>
                       </div>
                     ))}
                   </div>
@@ -934,7 +934,7 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
             {/* Scale (cluster) */}
             {detail.exec_mode?.includes('cluster') && (
               <div>
-                <div className="text-[10px] text-dark-500 uppercase mb-1.5">Scale Instances</div>
+                <div className="text-[10px] text-subtle uppercase mb-1.5">Scale Instances</div>
                 <div className="flex gap-2">
                   <input
                     value={scaleInput}
@@ -955,12 +955,12 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
 
             {/* Smart Restart */}
             <div>
-              <div className="text-[10px] text-dark-500 uppercase mb-1.5">Smart Restart</div>
+              <div className="text-[10px] text-subtle uppercase mb-1.5">Smart Restart</div>
               <div className="bg-dark-800/50 rounded-lg border border-dark-700/50 p-3">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
                     <span className="text-xs text-white font-medium">Restart on external changes</span>
-                    <p className="text-[10px] text-dark-500 mt-0.5">Auto-restart when files are edited via File Manager or Git Pull. Ignores changes made by the app itself.</p>
+                    <p className="text-[10px] text-subtle mt-0.5">Auto-restart when files are edited via File Manager or Git Pull. Ignores changes made by the app itself.</p>
                   </div>
                   <div className="relative ml-3">
                     <input
@@ -985,14 +985,14 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
             </div>
 
             {/* Actions */}            <div>
-              <div className="text-[10px] text-dark-500 uppercase mb-1.5">Actions</div>
+              <div className="text-[10px] text-subtle uppercase mb-1.5">Actions</div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { label: 'Restart', action: 'restart', icon: RotateCcw, color: 'text-blue-400 hover:bg-blue-400/10 border-blue-400/20' },
                   { label: 'Reload', action: 'reload', icon: RefreshCw, color: 'text-cyan-400 hover:bg-cyan-400/10 border-cyan-400/20' },
                   { label: detail?.status === 'online' ? 'Stop' : 'Start', action: detail?.status === 'online' ? 'stop' : 'start', icon: detail?.status === 'online' ? Square : Play, color: detail?.status === 'online' ? 'text-amber-400 hover:bg-amber-400/10 border-amber-400/20' : 'text-green-400 hover:bg-green-400/10 border-green-400/20' },
                   { label: 'Flush Logs', action: 'flush', icon: Eraser, color: 'text-purple-400 hover:bg-purple-400/10 border-purple-400/20' },
-                  { label: 'Reset Count', action: 'reset', icon: Hash, color: 'text-dark-400 hover:bg-dark-700/50 border-dark-600' },
+                  { label: 'Reset Count', action: 'reset', icon: Hash, color: 'text-muted hover:bg-dark-700/50 border-dark-600' },
                   { label: 'Delete', action: 'delete', icon: Trash2, color: 'text-red-400 hover:bg-red-400/10 border-red-400/20' },
                 ].map(btn => (
                   <button
@@ -1020,7 +1020,7 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
             </div>
           </div>
         ) : (
-          <div className="py-12 text-center text-dark-500 text-xs">App not found</div>
+          <div className="py-12 text-center text-subtle text-xs">App not found</div>
         )}
       </div>
     </div>
@@ -1139,9 +1139,9 @@ export default function PM2Manager() {
     switch (status) {
       case 'online': return 'text-green-400';
       case 'stopping': return 'text-amber-400';
-      case 'stopped': return 'text-dark-500';
+      case 'stopped': return 'text-subtle';
       case 'errored': return 'text-red-400';
-      default: return 'text-dark-400';
+      default: return 'text-muted';
     }
   };
 
@@ -1159,7 +1159,7 @@ export default function PM2Manager() {
       case 'error': return 'text-red-400';
       case 'warn': return 'text-amber-400';
       case 'info': return 'text-blue-400';
-      case 'debug': return 'text-dark-500';
+      case 'debug': return 'text-subtle';
       default: return 'text-dark-300';
     }
   };
@@ -1172,7 +1172,7 @@ export default function PM2Manager() {
     <div className={isFullscreen ? 'fixed inset-0 z-[100] bg-[#080c16] flex flex-col animate-fade-in' : 'border-t border-dark-700/50'}>
       {/* Log Toolbar */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-dark-900/80 border-b border-dark-700/50">
-        <span className="text-[11px] text-dark-400 flex items-center gap-1.5 mr-2">
+        <span className="text-[11px] text-muted flex items-center gap-1.5 mr-2">
           <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
           <span className="font-medium text-dark-300">{logApp}</span>
           <span className="text-dark-600">·</span>
@@ -1181,7 +1181,7 @@ export default function PM2Manager() {
 
         {/* Search */}
         <div className="relative flex-1 min-w-[120px] max-w-[250px]">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-dark-500" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-subtle" />
           <input
             value={logFilter}
             onChange={e => setLogFilter(e.target.value)}
@@ -1208,7 +1208,7 @@ export default function PM2Manager() {
           {/* Auto-scroll toggle */}
           <button
             onClick={() => setAutoScroll(!autoScroll)}
-            className={`p-1.5 rounded transition text-[10px] flex items-center gap-1 ${autoScroll ? 'bg-accent/10 text-accent' : 'text-dark-500 hover:text-dark-300 hover:bg-dark-800'}`}
+            className={`p-1.5 rounded transition text-[10px] flex items-center gap-1 ${autoScroll ? 'bg-accent/10 text-accent' : 'text-subtle hover:text-dark-300 hover:bg-dark-800'}`}
             title="Auto-scroll"
           >
             <ArrowDownToLine className="w-3.5 h-3.5" />
@@ -1217,7 +1217,7 @@ export default function PM2Manager() {
           {/* Clear */}
           <button
             onClick={() => setLogs([])}
-            className="p-1.5 rounded text-dark-500 hover:text-amber-400 hover:bg-amber-400/10 transition"
+            className="p-1.5 rounded text-subtle hover:text-amber-400 hover:bg-amber-400/10 transition"
             title="Clear logs"
           >
             <Eraser className="w-3.5 h-3.5" />
@@ -1226,7 +1226,7 @@ export default function PM2Manager() {
           {/* Fullscreen toggle */}
           <button
             onClick={() => setFullscreen(!fullscreen)}
-            className="p-1.5 rounded text-dark-500 hover:text-white hover:bg-dark-800 transition"
+            className="p-1.5 rounded text-subtle hover:text-white hover:bg-dark-800 transition"
             title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
           >
             {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -1235,7 +1235,7 @@ export default function PM2Manager() {
           {/* Close */}
           <button
             onClick={() => { setLogApp(null); setFullscreen(false); }}
-            className="p-1.5 rounded text-dark-500 hover:text-white hover:bg-dark-800 transition"
+            className="p-1.5 rounded text-subtle hover:text-white hover:bg-dark-800 transition"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -1248,7 +1248,7 @@ export default function PM2Manager() {
         className={`overflow-auto bg-[#080c16] font-mono text-[11px] leading-[1.6] ${isFullscreen ? 'flex-1' : 'h-56 md:h-72'}`}
       >
         {filteredLogs.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-dark-500 text-xs">
+          <div className="flex items-center justify-center h-full text-subtle text-xs">
             {logs.length === 0 ? 'Waiting for logs...' : 'No logs match filter'}
           </div>
         ) : (
@@ -1262,7 +1262,7 @@ export default function PM2Manager() {
                   <td className="text-dark-600 text-[10px] px-2 py-0 select-none text-right align-top whitespace-nowrap w-[1%]">
                     {line.id}
                   </td>
-                  <td className="text-dark-500 text-[10px] px-2 py-0 select-none align-top whitespace-nowrap w-[1%]">
+                  <td className="text-subtle text-[10px] px-2 py-0 select-none align-top whitespace-nowrap w-[1%]">
                     {line.timestamp}
                   </td>
                   <td className="px-1 py-0 align-top whitespace-nowrap w-[1%]">
@@ -1300,7 +1300,7 @@ export default function PM2Manager() {
           <button
             onClick={() => doGlobalAction('save')}
             disabled={globalActionLoading === 'save'}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition text-[11px]"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition text-[11px]"
             title="PM2 Save"
           >
             {globalActionLoading === 'save' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -1309,7 +1309,7 @@ export default function PM2Manager() {
           <button
             onClick={() => doGlobalAction('startup')}
             disabled={globalActionLoading === 'startup'}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition text-[11px]"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition text-[11px]"
             title="PM2 Startup"
           >
             {globalActionLoading === 'startup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
@@ -1318,7 +1318,7 @@ export default function PM2Manager() {
           <button
             onClick={() => doGlobalAction('resurrect')}
             disabled={globalActionLoading === 'resurrect'}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition text-[11px]"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition text-[11px]"
             title="PM2 Resurrect"
           >
             {globalActionLoading === 'resurrect' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArchiveRestore className="w-3.5 h-3.5" />}
@@ -1330,7 +1330,7 @@ export default function PM2Manager() {
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-medium hover:bg-accent/20 transition border border-accent/20">
           <Plus className="w-3.5 h-3.5" /> New App
         </button>
-        <button onClick={load} className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition">
+        <button onClick={load} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
@@ -1341,7 +1341,7 @@ export default function PM2Manager() {
       {/* App List */}
       <div className="flex-1 overflow-auto p-3 space-y-2">
         {apps.length === 0 && !loading && (
-          <div className="text-center py-12 text-dark-500 text-sm">
+          <div className="text-center py-12 text-subtle text-sm">
             No PM2 applications running
             <button onClick={() => setShowNewApp(true)} className="block mx-auto mt-3 px-4 py-2 bg-accent/10 text-accent text-xs rounded-lg hover:bg-accent/20 transition border border-accent/20">
               <Plus className="w-3.5 h-3.5 inline mr-1.5" />Launch your first app
@@ -1362,11 +1362,11 @@ export default function PM2Manager() {
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusBg(app.pm2_env.status)} ${statusColor(app.pm2_env.status)} uppercase font-medium`}>
                     {app.pm2_env.status}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-dark-700/50 border border-dark-600 text-dark-400 uppercase">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-dark-700/50 border border-dark-600 text-muted uppercase">
                     {app.pm2_env.exec_mode?.replace('_mode', '') || 'fork'}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-dark-400 mt-0.5">
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-muted mt-0.5">
                   <span>ID: {app.pm_id}</span>
                   <span>CPU: {app.monit.cpu}%</span>
                   <span>MEM: {formatBytes(app.monit.memory)}</span>
@@ -1379,32 +1379,32 @@ export default function PM2Manager() {
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => setDetailApp(app.name)}
-                  className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700/50 transition"
+                  className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700/50 transition"
                   title="Details">
                   <Info className="w-4 h-4" />
                 </button>
                 <button onClick={() => setLogApp(logApp === app.name ? null : app.name)}
-                  className={`p-1.5 rounded-lg transition ${logApp === app.name ? 'bg-accent/10 text-accent' : 'text-dark-400 hover:text-white hover:bg-dark-700/50'}`}
+                  className={`p-1.5 rounded-lg transition ${logApp === app.name ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-dark-700/50'}`}
                   title="Logs">
                   <ScrollText className="w-4 h-4" />
                 </button>
                 {app.pm2_env.status === 'online' ? (
                   <button onClick={() => doAction('stop', app.name)}
-                    className="p-1.5 rounded-lg text-dark-400 hover:text-amber-400 hover:bg-amber-400/10 transition" title="Stop">
+                    className="p-1.5 rounded-lg text-muted hover:text-amber-400 hover:bg-amber-400/10 transition" title="Stop">
                     <Square className="w-4 h-4" />
                   </button>
                 ) : (
                   <button onClick={() => doAction('start', app.name)}
-                    className="p-1.5 rounded-lg text-dark-400 hover:text-green-400 hover:bg-green-400/10 transition" title="Start">
+                    className="p-1.5 rounded-lg text-muted hover:text-green-400 hover:bg-green-400/10 transition" title="Start">
                     <Play className="w-4 h-4" />
                   </button>
                 )}
                 <button onClick={() => doAction('restart', app.name)}
-                  className="p-1.5 rounded-lg text-dark-400 hover:text-blue-400 hover:bg-blue-400/10 transition" title="Restart">
+                  className="p-1.5 rounded-lg text-muted hover:text-blue-400 hover:bg-blue-400/10 transition" title="Restart">
                   <RotateCcw className="w-4 h-4" />
                 </button>
                 <button onClick={() => { if (confirm(`Delete ${app.name}?`)) doAction('delete', app.name); }}
-                  className="p-1.5 rounded-lg text-dark-400 hover:text-red-400 hover:bg-red-400/10 transition" title="Delete">
+                  className="p-1.5 rounded-lg text-muted hover:text-red-400 hover:bg-red-400/10 transition" title="Delete">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

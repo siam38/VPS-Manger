@@ -23,6 +23,11 @@ export default {
           hover: '#2dd4bf',
           dim: '#0d9488'
         },
+        // Semantic text tokens. The raw dark-400/500 steps are surface colours;
+        // used as body text they measured 1.94-4.42:1 and failed WCAG AA.
+        // These keep the same teal-grey hue but clear 4.5:1 on dark-900/800/700.
+        muted: '#7da19c',
+        subtle: '#8fb5b1',
         success: '#22c55e',
         warning: '#f59e0b',
         danger: '#ef4444',

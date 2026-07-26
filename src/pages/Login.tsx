@@ -45,14 +45,14 @@ export default function Login({ onLogin }: Props) {
             <Server className="w-8 h-8 text-accent" />
           </div>
           <h1 className="text-2xl font-bold text-white">VPS Manager</h1>
-          <p className="text-dark-400 text-sm mt-1">VPS Control Center</p>
+          <p className="text-muted text-sm mt-1">VPS Control Center</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-dark-800/50 backdrop-blur border border-dark-700 rounded-2xl p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-dark-300 mb-1.5">Password</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               <input
                 type={show ? 'text' : 'password'}
                 value={password}
@@ -64,7 +64,7 @@ export default function Login({ onLogin }: Props) {
               <button
                 type="button"
                 onClick={() => setShow(!show)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-dark-200 transition"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-dark-200 transition"
               >
                 {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -89,7 +89,7 @@ export default function Login({ onLogin }: Props) {
         </form>
 
         <div className="text-center mt-6 space-y-1">
-          <p className="text-dark-500 text-xs flex items-center justify-center gap-1">
+          <p className="text-subtle text-xs flex items-center justify-center gap-1">
             Made with <Heart className="w-2.5 h-2.5 text-rose-400 fill-rose-400" /> by Siam
           </p>
           <p className="text-accent text-[10px] font-medium">VPS Manager v3.1</p>

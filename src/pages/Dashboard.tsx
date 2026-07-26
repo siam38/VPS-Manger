@@ -128,12 +128,12 @@ export default function Dashboard() {
 
       {/* Dashboard Footer */}
       <div className="text-center py-4 border-t border-dark-700/50">
-        <p className="text-[11px] text-dark-500 flex items-center justify-center gap-1.5">
+        <p className="text-[11px] text-subtle flex items-center justify-center gap-1.5">
           Made by <span className="text-dark-300 font-semibold">Siam</span> with <Heart className="w-3 h-3 text-rose-400 fill-rose-400 animate-pulse" /> 
           <span className="text-dark-600 mx-1">•</span>
           <span className="text-accent font-medium">VPS Manager v3.1</span>
           <span className="text-dark-600 mx-1">•</span>
-          <span className="text-dark-500">🦊</span>
+          <span className="text-subtle">🦊</span>
         </p>
       </div>
 
@@ -143,7 +143,7 @@ export default function Dashboard() {
           <div className="bg-dark-800 border border-dark-600 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-3 border-b border-dark-700">
               <h3 className="text-sm font-semibold text-white">{outputModal.title}</h3>
-              <button onClick={() => setOutputModal(null)} className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition">
+              <button onClick={() => setOutputModal(null)} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -193,7 +193,7 @@ function MetricCard({ icon: Icon, label, color, value, sub, percentage }: {
         </div>
         <div className="flex items-baseline gap-1">
           <span className="text-xl md:text-2xl font-bold text-white tracking-tight">{value}</span>
-          {sub && <span className="text-[11px] text-dark-400">{sub}</span>}
+          {sub && <span className="text-[11px] text-muted">{sub}</span>}
         </div>
         {percentage !== undefined && (
           <div className="mt-2.5 h-1.5 bg-dark-700/60 rounded-full overflow-hidden">
@@ -302,7 +302,7 @@ function InfoCard({ info, stats }: { info: SystemInfo | null; stats: Stats | nul
       <div className="space-y-2">
         {items.map(({ label, value }) => (
           <div key={label} className="flex justify-between text-xs">
-            <span className="text-dark-400">{label}</span>
+            <span className="text-muted">{label}</span>
             <span className="text-dark-200 text-right truncate ml-2 max-w-[200px]">{value}</span>
           </div>
         ))}

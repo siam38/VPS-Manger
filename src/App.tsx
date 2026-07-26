@@ -51,7 +51,7 @@ class ErrorBoundary extends React.Component<
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
-                <p className="text-dark-400 text-sm">
+                <p className="text-muted text-sm">
                   {this.state.error?.message || 'An unexpected error occurred'}
                 </p>
               </div>

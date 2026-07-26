@@ -52,7 +52,7 @@ export default function Layout({ children, onLogout }: Props) {
               </div>
               <div className="flex flex-col">
                 <span className="font-semibold text-white text-sm">VPS Manager</span>
-                <span className="text-[10px] text-dark-500">v3.0</span>
+                <span className="text-[10px] text-subtle">v3.0</span>
               </div>
             </div>
           )}
@@ -61,7 +61,7 @@ export default function Layout({ children, onLogout }: Props) {
               <Zap className="w-4 h-4 text-accent" />
             </div>
           )}
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto text-dark-400 hover:text-white">
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto text-muted hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -103,7 +103,7 @@ export default function Layout({ children, onLogout }: Props) {
           {/* System Status */}
           {!collapsed && (
             <div className="px-3 py-2 bg-dark-900/50 rounded-lg">
-              <div className="flex items-center gap-2 text-[10px] text-dark-400 mb-1">
+              <div className="flex items-center gap-2 text-[10px] text-muted mb-1">
                 <Activity className="w-3 h-3" />
                 <span>System Status</span>
               </div>
@@ -115,7 +115,7 @@ export default function Layout({ children, onLogout }: Props) {
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex items-center gap-3 w-full px-3 py-2 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700/50 text-sm transition"
+            className="hidden lg:flex items-center gap-3 w-full px-3 py-2 rounded-lg text-muted hover:text-white hover:bg-dark-700/50 text-sm transition"
           >
             <ChevronRight className={`w-4 h-4 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
             {!collapsed && <span>Collapse</span>}
@@ -135,7 +135,7 @@ export default function Layout({ children, onLogout }: Props) {
         {/* Top bar */}
         <header className="h-14 flex items-center justify-between px-4 border-b border-dark-700 bg-dark-800/50 backdrop-blur flex-shrink-0 max-lg:sticky max-lg:top-0 max-lg:z-30">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-dark-400 hover:text-white">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted hover:text-white">
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2">
@@ -152,9 +152,9 @@ export default function Layout({ children, onLogout }: Props) {
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-dark-900/50 rounded-lg border border-dark-700">
               <Shield className="w-3.5 h-3.5 text-green-400" />
-              <span className="text-[11px] text-dark-400">v3.0</span>
+              <span className="text-[11px] text-muted">v3.0</span>
             </div>
-            <div className="hidden md:flex items-center gap-2 text-[10px] text-dark-500">
+            <div className="hidden md:flex items-center gap-2 text-[10px] text-subtle">
               <Globe className="w-3 h-3" />
               <span>{currentTime.toLocaleTimeString()}</span>
             </div>

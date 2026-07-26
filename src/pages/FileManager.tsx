@@ -95,7 +95,7 @@ function getFileTypeInfo(type: string) {
     case 'archive': return { icon: FileArchive, color: 'text-yellow-400', label: 'Archive' };
     case 'document': return { icon: FileSpreadsheet, color: 'text-blue-400', label: 'Document' };
     case 'text': return { icon: FileText, color: 'text-green-400', label: 'Text' };
-    default: return { icon: FileText, color: 'text-dark-400', label: 'File' };
+    default: return { icon: FileText, color: 'text-muted', label: 'File' };
   }
 }
 
@@ -487,7 +487,7 @@ export default function FileManager() {
         
         {/* Breadcrumbs */}
         <div className="flex items-center gap-0.5 text-xs overflow-x-auto flex-1 min-w-0">
-          <button onClick={() => navigate(getAllowedBase(currentPath))} className="text-dark-400 hover:text-white transition p-1 rounded">
+          <button onClick={() => navigate(getAllowedBase(currentPath))} className="text-muted hover:text-white transition p-1 rounded">
             <Home className="w-3.5 h-3.5" />
           </button>
           {pathParts.map((part, i) => (
@@ -543,7 +543,7 @@ export default function FileManager() {
             <Zap className="w-4 h-4" />
           </button>
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dark-500" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-subtle" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -552,20 +552,20 @@ export default function FileManager() {
             />
           </div>
           <button onClick={() => setShowHidden(!showHidden)}
-            className={`p-1.5 rounded-lg transition ${showHidden ? 'bg-accent/10 text-accent' : 'text-dark-400 hover:text-white hover:bg-dark-700'}`}
+            className={`p-1.5 rounded-lg transition ${showHidden ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-dark-700'}`}
             title="Toggle hidden files">
             {showHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
           </button>
           <button onClick={() => { setNewFolderMode(true); setNewFolderName(''); }}
-            className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition" title="New folder">
+            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="New folder">
             <FolderPlus className="w-4 h-4" />
           </button>
           <button onClick={() => { setNewFileMode(true); setNewFileName(''); setNewFileType('text'); }}
-            className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition" title="New file">
+            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="New file">
             <FilePlus className="w-4 h-4" />
           </button>
           <button onClick={() => uploadRef.current?.click()}
-            className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition" title="Upload">
+            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Upload">
             <Upload className="w-4 h-4" />
           </button>
           {/* Select All / Deselect All */}
@@ -576,7 +576,7 @@ export default function FileManager() {
               setSelected(new Set(filteredItems.map(i => i.path)));
             }
           }}
-            className={`p-1.5 rounded-lg transition ${selected.size > 0 ? 'bg-accent/10 text-accent' : 'text-dark-400 hover:text-white hover:bg-dark-700'}`}
+            className={`p-1.5 rounded-lg transition ${selected.size > 0 ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-dark-700'}`}
             title={selected.size > 0 ? 'Deselect All' : 'Select All'}>
             <CheckSquare className="w-4 h-4" />
           </button>
@@ -592,7 +592,7 @@ export default function FileManager() {
               <Trash2 className="w-4 h-4" />
             </button>
           )}
-          <button onClick={() => load()} className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition">
+          <button onClick={() => load()} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
@@ -614,7 +614,7 @@ export default function FileManager() {
               placeholder="Folder name..."
             />
             <button onClick={handleNewFolder} className="p-1 text-green-400"><Check className="w-4 h-4" /></button>
-            <button onClick={() => setNewFolderMode(false)} className="p-1 text-dark-400"><X className="w-4 h-4" /></button>
+            <button onClick={() => setNewFolderMode(false)} className="p-1 text-muted"><X className="w-4 h-4" /></button>
           </div>
         )}
 
@@ -623,7 +623,7 @@ export default function FileManager() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 px-4 py-2 border-b border-dark-700 bg-dark-800/50">
             <div className="flex items-center gap-2 sm:hidden">
               <FilePlus className="w-4 h-4 text-green-400" />
-              <span className="text-xs text-dark-400">New File</span>
+              <span className="text-xs text-muted">New File</span>
             </div>
             <input
               autoFocus
@@ -649,7 +649,7 @@ export default function FileManager() {
               <button onClick={handleNewFile} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition" title="Create file">
                 <Check className="w-4 h-4" />
               </button>
-              <button onClick={() => setNewFileMode(false)} className="p-2 bg-dark-700 text-dark-400 rounded-lg hover:bg-dark-600 hover:text-white transition" title="Cancel">
+              <button onClick={() => setNewFileMode(false)} className="p-2 bg-dark-700 text-muted rounded-lg hover:bg-dark-600 hover:text-white transition" title="Cancel">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -657,7 +657,7 @@ export default function FileManager() {
         )}
 
         <table className="w-full">
-          <thead className="sticky top-0 bg-dark-800/90 backdrop-blur text-xs text-dark-400 border-b border-dark-700">
+          <thead className="sticky top-0 bg-dark-800/90 backdrop-blur text-xs text-muted border-b border-dark-700">
             <tr>
               <th className="w-8 px-2 py-2"></th>
               <th className="text-left px-2 py-2 font-medium">Name</th>
@@ -719,10 +719,10 @@ export default function FileManager() {
                       )}
                     </div>
                   </td>
-                  <td className="text-right px-3 py-1.5 text-xs text-dark-400 hidden sm:table-cell">
+                  <td className="text-right px-3 py-1.5 text-xs text-muted hidden sm:table-cell">
                     {item.isDirectory ? '\u2014' : formatBytes(item.size)}
                   </td>
-                  <td className="text-right px-3 py-1.5 text-xs text-dark-400 hidden md:table-cell">
+                  <td className="text-right px-3 py-1.5 text-xs text-muted hidden md:table-cell">
                     {formatDate(item.modified)}
                   </td>
                   <td className="px-2 py-1.5">
@@ -731,7 +731,7 @@ export default function FileManager() {
                       {canEdit && (
                         <button
                           onClick={(e) => { e.stopPropagation(); openFileInEditor(item); }}
-                          className="p-1 rounded text-dark-500 hover:text-accent transition md:opacity-0 md:group-hover:opacity-100"
+                          className="p-1 rounded text-subtle hover:text-accent transition md:opacity-0 md:group-hover:opacity-100"
                           title="Edit"
                         >
                           <Code2 className="w-3.5 h-3.5" />
@@ -739,7 +739,7 @@ export default function FileManager() {
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); handleContextMenu(e as any, item); }}
-                        className="p-1 rounded opacity-0 group-hover:opacity-100 text-dark-400 hover:text-white transition"
+                        className="p-1 rounded opacity-0 group-hover:opacity-100 text-muted hover:text-white transition"
                       >
                         <MoreVertical className="w-3.5 h-3.5" />
                       </button>
@@ -752,7 +752,7 @@ export default function FileManager() {
         </table>
 
         {filteredItems.length === 0 && !loading && (
-          <div className="text-center text-dark-500 py-12 text-sm">
+          <div className="text-center text-subtle py-12 text-sm">
             {search ? 'No matching files' : 'Empty directory'}
           </div>
         )}
@@ -800,7 +800,7 @@ export default function FileManager() {
             <div className="flex items-center gap-2 flex-1">
               <Code2 className="w-4 h-4 text-accent flex-shrink-0" />
               <span className="text-sm text-white font-medium truncate flex-1">{editingFile.name}</span>
-              <span className="text-[10px] text-dark-500 uppercase hidden sm:inline px-2 py-0.5 bg-dark-900 rounded">{editingFile.language}</span>
+              <span className="text-[10px] text-subtle uppercase hidden sm:inline px-2 py-0.5 bg-dark-900 rounded">{editingFile.language}</span>
               {editorSaved && (
                 <span className="text-[10px] text-green-400 flex items-center gap-1 animate-fade-in px-2 py-0.5 bg-green-400/10 rounded">
                   <Check className="w-3 h-3" /> Saved
@@ -811,32 +811,32 @@ export default function FileManager() {
               )}
             </div>
             <div className="flex items-center gap-1 overflow-x-auto">
-              <button onClick={increaseFontSize} className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition" title="Increase font size">
+              <button onClick={increaseFontSize} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Increase font size">
                 <span className="text-xs font-bold">A+</span>
               </button>
-              <button onClick={decreaseFontSize} className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition" title="Decrease font size">
+              <button onClick={decreaseFontSize} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Decrease font size">
                 <span className="text-xs font-bold">A-</span>
               </button>
               <div className="w-px h-6 bg-dark-700 mx-1" />
               <button onClick={() => { setEditorLineNumbers(!editorLineNumbers); updateEditorOption('lineNumbers', editorLineNumbers ? 'off' : 'on'); }}
-                className={`p-1.5 rounded-lg transition ${editorLineNumbers ? 'text-accent bg-accent/10' : 'text-dark-400 hover:text-white hover:bg-dark-700'}`} title="Toggle line numbers">
+                className={`p-1.5 rounded-lg transition ${editorLineNumbers ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-dark-700'}`} title="Toggle line numbers">
                 <span className="text-xs font-mono">123</span>
               </button>
               <button onClick={() => { setEditorWordWrap(!editorWordWrap); updateEditorOption('wordWrap', editorWordWrap ? 'off' : 'on'); }}
-                className={`p-1.5 rounded-lg transition ${editorWordWrap ? 'text-accent bg-accent/10' : 'text-dark-400 hover:text-white hover:bg-dark-700'}`} title="Toggle word wrap">
+                className={`p-1.5 rounded-lg transition ${editorWordWrap ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-dark-700'}`} title="Toggle word wrap">
                 <span className="text-xs"><span className="block w-3 h-0.5 bg-current mb-0.5" /><span className="block w-2 h-0.5 bg-current" /></span>
               </button>
               <button onClick={() => { setEditorMinimap(!editorMinimap); updateEditorOption('minimap', { enabled: editorMinimap }); }}
-                className={`p-1.5 rounded-lg transition ${editorMinimap ? 'text-accent bg-accent/10' : 'text-dark-400 hover:text-white hover:bg-dark-700'}`} title="Toggle minimap">
+                className={`p-1.5 rounded-lg transition ${editorMinimap ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-dark-700'}`} title="Toggle minimap">
                 <div className="w-3 h-3 border border-current rounded-sm" />
               </button>
               <div className="w-px h-6 bg-dark-700 mx-1" />
-              <button onClick={toggleFullscreen} className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition" title="Toggle fullscreen">
+              <button onClick={toggleFullscreen} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Toggle fullscreen">
                 {editorFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </button>
               <div className="w-px h-6 bg-dark-700 mx-1" />
               <button onClick={() => { if (editorRef.current) { const monaco = monacoRef.current || (window as any).monaco; if (monaco) { const model = editorRef.current.getModel(); if (model) { const range = model.getFullModelRange(); editorRef.current.setSelection(range); editorRef.current.focus(); } } } }}
-                className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700 transition" title="Select All">
+                className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-dark-700 transition" title="Select All">
                 <CheckSquare className="w-4 h-4" />
               </button>
               <button onClick={saveEditorFile} disabled={!editorModified || editorSaving}
@@ -854,29 +854,29 @@ export default function FileManager() {
           <div ref={editorContainerRef} className="flex-1" />
           
           {/* Editor Status Bar */}
-          <div className="flex items-center justify-between px-4 py-1.5 border-t border-dark-700 bg-dark-800/50 text-[11px] text-dark-400 flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-1.5 border-t border-dark-700 bg-dark-800/50 text-[11px] text-muted flex-shrink-0">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /><span>{editingFile.language}</span></span>
               <span className="text-dark-600">|</span>
               <span className="flex items-center gap-1.5"><Terminal className="w-3.5 h-3.5" /><span>UTF-8</span></span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-dark-500">Ln {editorRef.current?.getPosition()?.lineNumber || 1}, Col {editorRef.current?.getPosition()?.column || 1}</span>
-              <span className="text-dark-500">{editingFile.content.split('\n').length} lines</span>
-              <span className="text-dark-500">Ctrl+S to save</span>
+              <span className="text-subtle">Ln {editorRef.current?.getPosition()?.lineNumber || 1}, Col {editorRef.current?.getPosition()?.column || 1}</span>
+              <span className="text-subtle">{editingFile.content.split('\n').length} lines</span>
+              <span className="text-subtle">Ctrl+S to save</span>
             </div>
           </div>
         </div>
       )}
 
       {/* Status bar */}
-      <div className="px-4 py-1.5 border-t border-dark-700 bg-dark-800/30 text-xs text-dark-400 flex justify-between items-center">
+      <div className="px-4 py-1.5 border-t border-dark-700 bg-dark-800/30 text-xs text-muted flex justify-between items-center">
         <span>{filteredItems.length} items{selected.size > 0 ? ` \u00b7 ${selected.size} selected` : ''}</span>
         <input
           value={currentPath}
           onChange={e => setCurrentPath(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') navigate(currentPath); }}
-          className="bg-transparent text-right text-dark-400 hover:text-white focus:text-white focus:outline-none focus:border-b focus:border-accent px-1 min-w-0 flex-1 ml-4"
+          className="bg-transparent text-right text-muted hover:text-white focus:text-white focus:outline-none focus:border-b focus:border-accent px-1 min-w-0 flex-1 ml-4"
           title="Press Enter to navigate"
         />
       </div>

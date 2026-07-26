@@ -62,6 +62,42 @@ body {
   color: #fff;
 }
 
+/*
+ * Keyboard focus.
+ *
+ * The codebase applies `focus:outline-none` in ~23 places without ever
+ * substituting a visible ring, which left keyboard navigation effectively
+ * invisible. This restores a consistent focus indicator for keyboard users
+ * only (:focus-visible), so mouse clicks stay clean.
+ */
+:focus-visible {
+  outline: 2px solid #2dd4bf;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #2dd4bf;
+  outline-offset: 2px;
+}
+
+/* Respect reduced-motion preferences across all 53 animated elements. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }

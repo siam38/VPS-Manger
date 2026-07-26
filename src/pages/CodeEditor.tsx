@@ -268,7 +268,7 @@ export default function CodeEditor() {
             onClick={() => item.isDirectory ? toggleDir(item.path) : openFile(item)}
           >
             {item.isDirectory ? (
-              isExpanded ? <ChevronDown className="w-3 h-3 text-dark-500 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-dark-500 flex-shrink-0" />
+              isExpanded ? <ChevronDown className="w-3 h-3 text-subtle flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-subtle flex-shrink-0" />
             ) : <span className="w-3" />}
             <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${color}`} />
             <span className="truncate">{item.name}</span>
@@ -299,11 +299,11 @@ export default function CodeEditor() {
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-dark-700">
           <span className="text-xs font-medium text-dark-300 uppercase tracking-wide">Explorer</span>
           <div className="flex items-center gap-1">
-            <button onClick={() => loadDir('/root')} className="text-dark-500 hover:text-white p-1">
+            <button onClick={() => loadDir('/root')} className="text-subtle hover:text-white p-1">
               <RefreshCw className="w-3 h-3" />
             </button>
             {isMobile && (
-              <button onClick={() => setSidebarOpen(false)} className="text-dark-500 hover:text-white p-1">
+              <button onClick={() => setSidebarOpen(false)} className="text-subtle hover:text-white p-1">
                 <X className="w-4 h-4" />
               </button>
             )}
@@ -319,7 +319,7 @@ export default function CodeEditor() {
         {/* Tab Bar */}
         <div className="flex items-center bg-dark-800/50 border-b border-dark-700 overflow-x-auto flex-shrink-0">
           <button onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="px-2 py-2.5 text-dark-400 hover:text-white hover:bg-dark-700/50 transition border-r border-dark-700 flex-shrink-0"
+            className="px-2 py-2.5 text-muted hover:text-white hover:bg-dark-700/50 transition border-r border-dark-700 flex-shrink-0"
             title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           >
             {isMobile ? <Menu className="w-4 h-4" /> : (sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />)}
@@ -329,14 +329,14 @@ export default function CodeEditor() {
             <div
               key={tab.path}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer border-r border-dark-700 min-w-0 transition flex-shrink-0
-                ${activeTab === tab.path ? 'bg-[#060e0d] text-white' : 'text-dark-400 hover:text-dark-200 hover:bg-dark-800'}`}
+                ${activeTab === tab.path ? 'bg-[#060e0d] text-white' : 'text-muted hover:text-dark-200 hover:bg-dark-800'}`}
               onClick={() => setActiveTab(tab.path)}
             >
               {tab.modified && <span className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />}
               <span className="truncate max-w-[100px] md:max-w-[120px]">{tab.name}</span>
               <button
                 onClick={(e) => { e.stopPropagation(); closeTab(tab.path); }}
-                className="p-0.5 rounded hover:bg-dark-600 text-dark-500 hover:text-white flex-shrink-0"
+                className="p-0.5 rounded hover:bg-dark-600 text-subtle hover:text-white flex-shrink-0"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -358,7 +358,7 @@ export default function CodeEditor() {
                     }
                   }
                 }}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium text-dark-500 hover:text-dark-300 transition border border-transparent hover:border-dark-600"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium text-subtle hover:text-dark-300 transition border border-transparent hover:border-dark-600"
                 title="Select All (Ctrl+A)"
               >
                 <CheckSquare className="w-3.5 h-3.5" />
@@ -380,7 +380,7 @@ export default function CodeEditor() {
             <button
               onClick={() => setAutoSave(!autoSave)}
               className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium transition ${
-                autoSave ? 'bg-green-400/10 text-green-400 border border-green-400/20' : 'text-dark-500 hover:text-dark-300 border border-transparent'
+                autoSave ? 'bg-green-400/10 text-green-400 border border-green-400/20' : 'text-subtle hover:text-dark-300 border border-transparent'
               }`}
               title={autoSave ? 'Auto-save ON (saves 2s after typing stops)' : 'Auto-save OFF'}
             >
@@ -393,7 +393,7 @@ export default function CodeEditor() {
         {/* Monaco Container */}
         <div className="flex-1 relative">
           {tabs.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-dark-500 gap-2">
+            <div className="h-full flex flex-col items-center justify-center text-subtle gap-2">
               <FileIcon className="w-12 h-12 opacity-20" />
               <span className="text-sm">Open a file from the sidebar</span>
               {isMobile && (
@@ -409,7 +409,7 @@ export default function CodeEditor() {
 
         {/* Status Bar */}
         {activeTabData && (
-          <div className="flex items-center justify-between px-3 py-1 border-t border-dark-700 bg-dark-800/30 text-[11px] text-dark-500 flex-shrink-0">
+          <div className="flex items-center justify-between px-3 py-1 border-t border-dark-700 bg-dark-800/30 text-[11px] text-subtle flex-shrink-0">
             <span className="truncate">{activeTabData.path}</span>
             <div className="flex items-center gap-3">
               <span className="uppercase">{activeTabData.language}</span>
