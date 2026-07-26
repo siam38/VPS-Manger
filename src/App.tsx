@@ -1,15 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import Login from './pages/Login';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import FileManager from './pages/FileManager';
-import Terminal from './pages/Terminal';
-import Processes from './pages/Processes';
-import PM2Manager from './pages/PM2Manager';
-import GitSync from './pages/GitSync';
 import { disconnectSocket } from './lib/socket';
+
+// Route-level code splitting: each page (and its heavy deps - Monaco, xterm,
+// recharts) is fetched on demand instead of shipping in the initial bundle.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const FileManager = lazy(() => import('./pages/FileManager'));
+const Terminal = lazy(() => import('./pages/Terminal'));
+const Processes = lazy(() => import('./pages/Processes'));
+const PM2Manager = lazy(() => import('./pages/PM2Manager'));
+const GitSync = lazy(() => import('./pages/GitSync'));
+
+function RouteFallback() {
+  return (
+    <div className="h-full min-h-[60vh] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -107,15 +118,17 @@ function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <Layout onLogout={handleLogout}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/files" element={<FileManager />} />
-            <Route path="/terminal" element={<Terminal />} />
-            <Route path="/processes" element={<Processes />} />
-            <Route path="/pm2" element={<PM2Manager />} />
-            <Route path="/git" element={<GitSync />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/files" element={<FileManager />} />
+              <Route path="/terminal" element={<Terminal />} />
+              <Route path="/processes" element={<Processes />} />
+              <Route path="/pm2" element={<PM2Manager />} />
+              <Route path="/git" element={<GitSync />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </Layout>
       </BrowserRouter>
     </ErrorBoundary>
