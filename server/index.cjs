@@ -1770,9 +1770,37 @@ io.on('connection', (socket) => {
   // Terminal
   socket.on('terminal:create', (data, cb) => {
     try {
-      const { cols = 80, rows = 24, cwd = os.homedir() } = data || {};
+      // os.homedir() reads $HOME, and the panel is launched with `sudo -n -E`,
+      // which *preserves* the invoking user's HOME. Running as uid 0 that
+      // yielded HOME=/home/ubuntu, so shells opened in /home/ubuntu while the
+      // file manager (which uses real paths) wrote to /root — same `~` in the
+      // prompt, two different directories. os.userInfo() reads the passwd
+      // entry for the effective uid, which is the actual home.
+      let defaultCwd;
+      try { defaultCwd = os.userInfo().homedir || os.homedir(); }
+      catch { defaultCwd = os.homedir(); }
+      const { cols = 80, rows = 24, cwd = defaultCwd } = data || {};
       const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
-      const ptyProc = pty.spawn(shell, [], { name: 'xterm-256color', cols, rows, cwd, env: { ...process.env, TERM: 'xterm-256color' } });
+      // The PTY must NOT inherit the panel's own environment wholesale.
+      //
+      // Two problems with `{ ...process.env }`:
+      //  1. Secrets leak. PASSWORD and JWT_SECRET were readable from every
+      //     shell, and by anything the user ran inside one.
+      //  2. PORT collides. The panel's PORT=48292 was inherited, so a user's
+      //     `app.listen(process.env.PORT || 3000)` bound to the panel's port,
+      //     hit EADDRINUSE and exited instantly — looking like the script
+      //     "didn't run" when it was really a port conflict.
+      //
+      // Strip the panel's config and hand the shell a normal login env.
+      const shellEnv = { ...process.env };
+      for (const k of ['PASSWORD', 'JWT_SECRET', 'PORT', 'SESSION_SECRET', 'TOKEN']) {
+        delete shellEnv[k];
+      }
+      shellEnv.TERM = 'xterm-256color';
+      shellEnv.HOME = defaultCwd; // `sudo -E` preserved the invoker's HOME
+      try { shellEnv.USER = shellEnv.LOGNAME = os.userInfo().username; } catch { /* keep inherited */ }
+
+      const ptyProc = pty.spawn(shell, [], { name: 'xterm-256color', cols, rows, cwd, env: shellEnv });
       const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       terminals.set(id, { pty: ptyProc, socketId: socket.id });
       ptyProc.on('data', d => socket.emit('terminal:data', { terminalId: id, data: d }));
