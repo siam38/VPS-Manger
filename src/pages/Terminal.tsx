@@ -214,7 +214,6 @@ export default function Terminal() {
   );
 
   const split = splitId && splitId !== activeId ? splitId : null;
-  const splitSession = split ? sessions.find(s => s.id === split) : null;
 
   return (
     // `h-full` alone collapses here: the shell's <main> is `flex-1` on a block
@@ -428,19 +427,42 @@ export default function Terminal() {
         </div>
       )}
 
-      {/* ── Panes ────────────────────────────────────────────────── */}
-      <div className="flex-1 relative min-h-0 flex">
-        <div className="relative flex-1 min-w-0">
-          {sessions.map(s => (
+      {/* ── Panes ──────────────────────────────────────────────────
+          Every session is mounted exactly once and *positioned*. Rendering
+          the split session through a second <TerminalPane> spawned a duplicate
+          PTY (3 shells for 2 tabs) and made both copies fight over one ref
+          slot, which left the split pane dead. Placement is style-only so the
+          running shell and its scrollback survive layout changes. */}
+      <div className="flex-1 relative min-h-0">
+        {sessions.map(s => {
+          const isActive = s.id === activeId;
+          const isSplit = s.id === split;
+          const shown = isActive || isSplit;
+          return (
             <div
               key={s.id}
-              className={`absolute inset-0 ${s.id === activeId ? '' : 'invisible pointer-events-none'}`}
-              // Kept mounted, not unmounted: a hidden tab must keep its
-              // running process and scrollback alive.
+              style={shown ? {
+                position: 'absolute', top: 0, bottom: 0,
+                left: split ? (isActive ? '0%' : '50%') : '0%',
+                width: split ? '50%' : '100%',
+              } : undefined}
+              className={shown ? (isSplit ? 'border-l border-line' : '') : 'absolute inset-0 invisible pointer-events-none'}
+              onMouseDown={() => { if (!isActive) setActiveId(s.id); }}
             >
-              {renderPane(s.id)}
-              {(s.status === 'disconnected' || s.status === 'exited') && s.id === activeId && (
-                <div className="absolute inset-x-0 bottom-0 flex items-center gap-3 px-3 py-2 bg-surface/95 border-t border-line backdrop-blur">
+              {isSplit && (
+                <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 px-3 h-8 bg-surface/90 border-b border-line backdrop-blur">
+                  <TerminalIcon className="w-3.5 h-3.5 text-subtle" strokeWidth={1.75} aria-hidden />
+                  <span className="text-label font-mono text-muted truncate flex-1">{tabLabel(s)}</span>
+                  <button onClick={() => setSplitId(null)} className="btn-icon w-6 h-6" aria-label="Close split pane">
+                    <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+                  </button>
+                </div>
+              )}
+              <div className={`absolute inset-0 ${isSplit ? 'pt-8' : ''}`}>
+                {renderPane(s.id)}
+              </div>
+              {(s.status === 'disconnected' || s.status === 'exited') && isActive && (
+                <div className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-3 px-3 py-2 bg-surface/95 border-t border-line backdrop-blur">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(s.status)}`} aria-hidden />
                   <span className="text-meta text-muted truncate flex-1">
                     {s.detail || (s.status === 'exited' ? 'Session ended' : 'Connection lost')}
@@ -452,21 +474,8 @@ export default function Terminal() {
                 </div>
               )}
             </div>
-          ))}
-        </div>
-
-        {splitSession && (
-          <div className="relative flex-1 min-w-0 border-l border-line max-md:hidden">
-            <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 px-3 h-8 bg-surface/90 border-b border-line backdrop-blur">
-              <TerminalIcon className="w-3.5 h-3.5 text-subtle" strokeWidth={1.75} />
-              <span className="text-label font-mono text-muted truncate flex-1">{tabLabel(splitSession)}</span>
-              <button onClick={() => setSplitId(null)} className="btn-icon w-6 h-6" aria-label="Close split pane">
-                <X className="w-3.5 h-3.5" strokeWidth={1.75} />
-              </button>
-            </div>
-            <div className="absolute inset-0 pt-8">{renderPane(splitSession.id)}</div>
-          </div>
-        )}
+          );
+        })}
       </div>
 
       {/* ── Status bar (desktop) ───────────────────────────────────
