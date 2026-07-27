@@ -29,7 +29,7 @@ export function SummaryBar({ apps }: { apps: PM2App[] }) {
         icon={Activity}
         label="Running"
         value={`${online}`}
-        sub={`of ${apps.length}`}
+        sub={stopped ? `of ${apps.length} · ${stopped} stopped` : `of ${apps.length}`}
         // Only dims to a warning if something isn't running that should be.
         tone={online < apps.length ? 'warn' : 'idle'}
       />
@@ -37,7 +37,9 @@ export function SummaryBar({ apps }: { apps: PM2App[] }) {
         icon={AlertTriangle}
         label="Errored"
         value={`${errored}`}
-        sub={stopped ? `${stopped} stopped` : 'none stopped'}
+        // Stopped belongs with Running, not here. Hanging the stopped count
+        // under the errored number implied a stopped app was an error.
+        sub={errored > 0 ? 'need attention' : 'none'}
         tone={errored > 0 ? 'danger' : 'idle'}
       />
       <Stat

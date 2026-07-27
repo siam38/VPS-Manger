@@ -118,7 +118,12 @@ export const TONE_TEXT: Record<StatusTone, string> = {
 
 /* ── Formatting ────────────────────────────────────────────────────────── */
 
-export function formatUptime(ms: number): string {
+export function formatUptime(ms: number, status?: string): string {
+  // A stopped process has no uptime. The old row rendered `UP 16s` next to a
+  // STOPPED badge because it formatted pm_uptime unconditionally — PM2 leaves
+  // the last start timestamp in place after a process exits, so the counter
+  // kept ticking for something that was not running.
+  if (status && status !== 'online') return '—';
   if (!ms) return '—';
   const diff = Date.now() - ms;
   if (diff < 0) return '—';

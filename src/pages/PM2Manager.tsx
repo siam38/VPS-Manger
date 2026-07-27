@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Boxes, Plus, Power, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Boxes, ChevronRight, Plus, Power, RefreshCw } from 'lucide-react';
 import { apiGet, apiPost } from '../lib/api';
 import { getSocket } from '../lib/socket';
 import { useToast } from '../lib/toast';
@@ -219,10 +219,10 @@ export default function PM2Manager() {
         {bootRisk && apps.length > 0 && (
           <button
             onClick={() => setShowBoot(true)}
-            className="w-full flex items-start gap-2.5 rounded-card border border-amber-400/25 bg-amber-400/5 p-3 text-left hover:border-amber-400/40 transition-colors"
+            className="group w-full flex items-start gap-2.5 rounded-card border border-amber-400/25 bg-amber-400/5 p-3 text-left hover:border-amber-400/40 hover:bg-amber-400/[0.08] transition-colors"
           >
             <Power className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" strokeWidth={1.5} aria-hidden="true" />
-            <span className="min-w-0">
+            <span className="min-w-0 flex-1">
               <span className="block text-body font-medium text-amber-300">
                 {!boot?.daemonAtBoot
                   ? 'Apps will not restart after a reboot'
@@ -232,8 +232,15 @@ export default function PM2Manager() {
                 {!boot?.daemonAtBoot
                   ? 'PM2 is not configured to start when this machine boots.'
                   : unsaved.slice(0, 4).join(', ') + (unsaved.length > 4 ? '…' : '')}
-                {' '}Tap to review.
               </span>
+            </span>
+            {/* The banner is the only place that tells you apps will not
+                survive a reboot, so it has to carry a visible way out. As a
+                muted sentence ending in a full stop it read as a dead
+                instruction with nowhere to go. */}
+            <span className="btn btn-sm btn-quiet !text-amber-300 shrink-0 pointer-events-none group-hover:bg-amber-400/10">
+              Review setup
+              <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />
             </span>
           </button>
         )}
@@ -267,6 +274,7 @@ export default function PM2Manager() {
             app={app}
             boot={boot}
             busy={busy[app.name] || ''}
+            hostBootBroken={!boot?.daemonAtBoot}
             logsOpen={logApp === app.name}
             onLogs={() => setLogApp(cur => (cur === app.name ? null : app.name))}
             onDetail={() => setDetailApp(app.name)}

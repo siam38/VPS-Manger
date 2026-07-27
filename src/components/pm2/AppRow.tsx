@@ -13,6 +13,10 @@ interface Props {
   boot: BootStatus | null;
   logsOpen: boolean;
   busy: string;
+  /** True when boot persistence is broken host-wide. In that case the page
+   *  banner already says so once, and repeating it on every card turns a
+   *  single machine-level fact into what looks like a per-process fault. */
+  hostBootBroken: boolean;
   onLogs: () => void;
   onDetail: () => void;
   onAction: (action: 'start' | 'stop' | 'restart' | 'delete') => void;
@@ -32,7 +36,7 @@ interface Props {
  * jittering as they tick.
  */
 export const AppRow = memo(function AppRow({
-  app, boot, logsOpen, busy, onLogs, onDetail, onAction,
+  app, boot, logsOpen, busy, hostBootBroken, onLogs, onDetail, onAction,
 }: Props) {
   const status = app.pm2_env.status;
   const tone = statusTone(status);
@@ -62,7 +66,7 @@ export const AppRow = memo(function AppRow({
               aria-label={`Details for ${app.name}`}
             >
               <span className="flex items-center gap-2 min-w-0">
-                <span className="text-body font-semibold text-ink truncate group-hover/name:text-accent transition-colors">
+                <span className="text-title font-semibold text-ink truncate group-hover/name:text-accent transition-colors">
                   {app.name}
                 </span>
                 <ChevronRight
@@ -70,22 +74,20 @@ export const AppRow = memo(function AppRow({
                   aria-hidden="true"
                 />
               </span>
-              <span className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <span className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <span className={`text-label font-medium uppercase ${TONE_TEXT[tone]}`}>
                   {status}
                 </span>
                 <span className="text-subtle text-label">·</span>
                 <span className="text-label text-subtle">{execMode(app.pm2_env.exec_mode)}</span>
                 <span className="text-subtle text-label">·</span>
-                <span className="text-label text-subtle font-mono tabular-nums">id {app.pm_id}</span>
-                {/* Boot state, stated plainly. This is the question people
-                    actually have and it was invisible before. */}
-                {!bootInfo.onBoot && (
-                  <>
-                    <span className="text-subtle text-label">·</span>
-                    <span className="text-label text-amber-400/80">not on boot</span>
-                  </>
-                )}
+                <span className="text-label text-subtle tabular-nums">id {app.pm_id}</span>
+              </span>
+              {/* Path belongs with the name it identifies. It sat bottom-right
+                  of the card before, on a different baseline, reading as if it
+                  labelled the Stop button. */}
+              <span className="block text-label text-subtle font-mono truncate mt-0.5">
+                {app.pm2_env.pm_exec_path}
               </span>
             </button>
 
@@ -104,9 +106,10 @@ export const AppRow = memo(function AppRow({
 
               <button
                 onClick={() => onAction('restart')}
-                disabled={!!busy}
+                disabled={!!busy || !online}
                 className="btn-icon !w-8 !h-8 max-md:!w-10 max-md:!h-10"
                 aria-label={`Restart ${app.name}`}
+                title={online ? `Restart ${app.name}` : 'Not running — use Start'}
               >
                 <RotateCcw
                   className={`w-4 h-4 ${busy === 'restart' ? 'animate-spin' : ''}`}
@@ -115,37 +118,49 @@ export const AppRow = memo(function AppRow({
                 />
               </button>
 
-              {/* The primary lifecycle action gets a real filled/quiet button,
-                  not a fifth identical glyph. */}
+              {/* The label stays on mobile. Hiding it turned the disruptive
+                  action into a bare 16px glyph reading as a checkbox, while
+                  Start kept its filled chip — two affordances for one slot,
+                  with the riskier one smaller and unlabelled. */}
               <button
                 onClick={() => onAction(online ? 'stop' : 'start')}
                 disabled={!!busy}
                 className={`btn btn-sm ${online ? 'btn-quiet' : 'btn-primary'} max-md:!h-10`}
               >
                 {online
-                  ? <Square className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />
-                  : <Play className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" />}
-                <span className="max-sm:sr-only">{online ? 'Stop' : 'Start'}</span>
+                  ? <Square className="w-3.5 h-3.5 fill-current" strokeWidth={0} aria-hidden="true" />
+                  : <Play className="w-3.5 h-3.5 fill-current" strokeWidth={0} aria-hidden="true" />}
+                <span>{online ? 'Stop' : 'Start'}</span>
               </button>
             </div>
           </div>
 
           {/* ── Metrics ─────────────────────────────────────────────
-              Mono + tabular figures. Non-tabular digits on live-updating
-              numbers make the entire row shift on every poll. */}
-          <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 text-meta">
-            <Metric label="cpu" value={`${cpu.toFixed(1)}%`} tone={cTone} />
-            <Metric label="mem" value={formatBytes(mem)} />
-            <Metric label="up" value={formatUptime(app.pm2_env.pm_uptime)} />
+              Fixed-width columns. As inline key/value pairs the columns never
+              lined up between rows — `MEM 0 B` vs `MEM 56.3 MB` shifted every
+              following metric sideways, so uptime could not be compared down
+              the list without reading each row individually. */}
+          {/* Two columns on phones. Four 85px columns pushed `RESTARTS` into
+              the card edge and made every value unreadable. */}
+          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 max-w-md mt-2.5 text-meta">
+            {/* A stopped process has no CPU share and no resident memory — the
+                same class of meaningless-for-stopped metric as uptime. */}
+            <Metric label="cpu" value={online ? `${cpu.toFixed(1)}%` : '—'} tone={online ? cTone : 'idle'} />
+            <Metric label="mem" value={online ? formatBytes(mem) : '—'} />
+            <Metric label="up" value={formatUptime(app.pm2_env.pm_uptime, status)} />
             <Metric
               label="restarts"
               value={String(app.pm2_env.restart_time ?? 0)}
               tone={(app.pm2_env.restart_time ?? 0) > 10 ? 'warn' : 'idle'}
             />
-            <dd className="hidden lg:block text-subtle font-mono truncate max-w-[280px] ml-auto">
-              {app.pm2_env.pm_exec_path}
-            </dd>
           </dl>
+
+          {/* Boot warning only when it is specific to THIS app — i.e. running
+              but missing from the saved list. Host-level breakage is stated
+              once in the page banner instead of on every card. */}
+          {!bootInfo.onBoot && !hostBootBroken && (
+            <p className="text-label text-amber-400/80 mt-1.5">{bootInfo.reason}</p>
+          )}
         </div>
       </div>
     </div>
@@ -161,9 +176,11 @@ const METRIC_TONE: Record<string, string> = {
 
 function Metric({ label, value, tone = 'idle' }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="flex items-baseline gap-1.5">
+    <div className="min-w-0">
+      {/* Label recedes, value leads. Both were the same size and near-same
+          colour before, so `MEM` read as loudly as `56.3 MB`. */}
       <dt className="text-label text-subtle uppercase">{label}</dt>
-      <dd className={`font-mono tabular-nums ${METRIC_TONE[tone]}`}>{value}</dd>
+      <dd className={`font-mono tabular-nums truncate ${METRIC_TONE[tone]}`}>{value}</dd>
     </div>
   );
 }
