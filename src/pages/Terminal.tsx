@@ -5,7 +5,7 @@ import {
   RotateCcw, Zap, ChevronsUpDown,
 } from 'lucide-react';
 import TerminalPane, { type TerminalPaneHandle, type PaneStatus } from '../components/TerminalPane';
-import TerminalKeyBar from '../components/TerminalKeyBar';
+import TerminalKeyBar, { type ModState } from '../components/TerminalKeyBar';
 import { useToast } from '../lib/toast';
 import { FONT_MIN, FONT_MAX, FONT_DEFAULT, loadPref, savePref } from '../lib/termTheme';
 
@@ -41,6 +41,27 @@ export default function Terminal() {
   ]);
   const [activeId, setActiveId] = useState<string>(() => '');
   const [fontSize, setFontSize] = useState<number>(() => loadPref('fontSize', FONT_DEFAULT));
+
+  /**
+   * Sticky modifiers live here, not inside the key bar.
+   *
+   * Characters typed on the phone's own keyboard bypass the key bar entirely
+   * and land in xterm's onData. When Ctrl was private to the key bar, arming
+   * it and then typing `c` sent a literal "c" — so you could never Ctrl+C a
+   * running process from a phone, which is the whole point of the bar.
+   * The pane reads these through a ref so its mount-time onData handler always
+   * sees current state.
+   */
+  const [ctrlMod, setCtrlMod] = useState<ModState>('off');
+  const [altMod, setAltMod] = useState<ModState>('off');
+  const modsRef = useRef({ ctrl: ctrlMod, alt: altMod });
+  modsRef.current = { ctrl: ctrlMod, alt: altMod };
+
+  /** A 'once' modifier is spent by the first key it applies to. */
+  const consumeMods = useCallback(() => {
+    setCtrlMod(c => (c === 'once' ? 'off' : c));
+    setAltMod(a => (a === 'once' ? 'off' : a));
+  }, []);
   const [splitId, setSplitId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -248,6 +269,8 @@ export default function Terminal() {
       key={id}
       ref={(h: TerminalPaneHandle | null) => { panes.current.set(id, h); }}
       fontSize={fontSize}
+      mods={modsRef}
+      onModsUsed={consumeMods}
       onTitle={t => patch(id, { title: t })}
       onStatus={(status, detail) => patch(id, { status, detail })}
       onSelectionChange={has => { if (id === activeId) setHasSelection(has); }}
@@ -585,7 +608,14 @@ export default function Terminal() {
       </div>
 
       {/* Mobile: the keys a phone keyboard cannot produce. */}
-      <TerminalKeyBar onKey={sendKey} onPaste={doPaste} />
+      <TerminalKeyBar
+        onKey={sendKey}
+        onPaste={doPaste}
+        ctrl={ctrlMod}
+        alt={altMod}
+        setCtrl={setCtrlMod}
+        setAlt={setAltMod}
+      />
     </div>
   );
 }

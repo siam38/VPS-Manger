@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   CornerDownLeft, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ClipboardPaste,
 } from 'lucide-react';
@@ -26,20 +26,30 @@ import {
  *    clipped against both screen edges.
  */
 
+export type ModState = 'off' | 'once' | 'lock';
+
 interface Props {
   onKey: (data: string) => void;
   onPaste: () => void;
+  /**
+   * Modifier state is owned by the page, not by this component.
+   *
+   * It has to be shared: characters typed on the phone's *own* keyboard never
+   * pass through these buttons, they go straight into xterm. If Ctrl lived
+   * only in here, arming it and then typing `c` would send a literal "c" and
+   * you could never interrupt a running process from a phone.
+   */
+  ctrl: ModState;
+  alt: ModState;
+  setCtrl: React.Dispatch<React.SetStateAction<ModState>>;
+  setAlt: React.Dispatch<React.SetStateAction<ModState>>;
 }
-
-type ModState = 'off' | 'once' | 'lock';
 
 /** Trimmed from 30 to the characters that actually matter in a shell, so each
  *  target clears ~40px instead of ~28px. */
 const QUICK_CHARS = ['|', '/', '-', '_', '~', '$', '.', ':', '*', '"', "'", '>', '&', '\\', '{', '}', '[', ']', '(', ')', '#', '!', '=', '?', '+', ';', '@', '%'];
 
-export default function TerminalKeyBar({ onKey, onPaste }: Props) {
-  const [ctrl, setCtrl] = useState<ModState>('off');
-  const [alt, setAlt] = useState<ModState>('off');
+export default function TerminalKeyBar({ onKey, onPaste, ctrl, alt, setCtrl, setAlt }: Props) {
 
   // off -> once (next key only) -> lock (until tapped off). Chording is
   // impossible on a touch screen, so modifiers must be sticky.

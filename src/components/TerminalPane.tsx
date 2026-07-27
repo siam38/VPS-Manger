@@ -3,7 +3,7 @@ import type { Terminal as XTermType } from '@xterm/xterm';
 import type { FitAddon as FitAddonType } from '@xterm/addon-fit';
 import type { SearchAddon as SearchAddonType } from '@xterm/addon-search';
 import { getSocket } from '../lib/socket';
-import { termTheme, TERM_BG, SCROLLBACK_DEFAULT } from '../lib/termTheme';
+import { termTheme, TERM_BG, SCROLLBACK_DEFAULT, ctrlByte } from '../lib/termTheme';
 
 // Local stylesheet. This was previously pulled from cdn.jsdelivr.net on every
 // visit — an external request for a file already sitting in node_modules, which
@@ -27,10 +27,19 @@ export interface TerminalPaneHandle {
   hasSelection(): boolean;
 }
 
+export type ModState = 'off' | 'once' | 'lock';
+
 interface Props {
   fontSize: number;
   scrollback?: number;
   cwd?: string;
+  /**
+   * Sticky modifiers armed by the mobile key bar. Read through a ref (not a
+   * prop value) because `onData` is registered once at mount and must always
+   * see the latest state without re-subscribing.
+   */
+  mods?: React.MutableRefObject<{ ctrl: ModState; alt: ModState }>;
+  onModsUsed?: () => void;
   onTitle?: (title: string) => void;
   onStatus?: (status: PaneStatus, detail?: string) => void;
   onSelectionChange?: (has: boolean) => void;
@@ -47,7 +56,7 @@ interface Props {
  * the life of the page. Each pane now owns its lifecycle and tears down cleanly.
  */
 const TerminalPane = React.forwardRef<TerminalPaneHandle, Props>(function TerminalPane(
-  { fontSize, scrollback = SCROLLBACK_DEFAULT, cwd, onTitle, onStatus, onSelectionChange, onBell },
+  { fontSize, scrollback = SCROLLBACK_DEFAULT, cwd, mods, onModsUsed, onTitle, onStatus, onSelectionChange, onBell },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -59,8 +68,8 @@ const TerminalPane = React.forwardRef<TerminalPaneHandle, Props>(function Termin
   const [booted, setBooted] = useState(false);
 
   // Callbacks live in refs so a parent re-render never tears down the terminal.
-  const cbRef = useRef({ onTitle, onStatus, onSelectionChange, onBell });
-  cbRef.current = { onTitle, onStatus, onSelectionChange, onBell };
+  const cbRef = useRef({ onTitle, onStatus, onSelectionChange, onBell, mods, onModsUsed });
+  cbRef.current = { onTitle, onStatus, onSelectionChange, onBell, mods, onModsUsed };
 
   useEffect(() => {
     let cancelled = false;
@@ -147,7 +156,30 @@ const TerminalPane = React.forwardRef<TerminalPaneHandle, Props>(function Termin
           terminalIdRef.current = tid;
           cbRef.current.onStatus?.('ready');
 
-          cleanups.push(term.onData(d => socket.emit('terminal:input', { terminalId: tid, input: d })).dispose);
+          /**
+           * Apply any modifier armed on the mobile key bar.
+           *
+           * Letters typed on the phone's own keyboard arrive here, NOT through
+           * the key bar's buttons — so arming Ctrl and then tapping `c` used to
+           * send a literal "c". That made it impossible to interrupt a running
+           * process from a phone, which is the single most important thing a
+           * server terminal has to do.
+           */
+          const applyMods = (d: string): string => {
+            const m = cbRef.current.mods?.current;
+            if (!m || (m.ctrl === 'off' && m.alt === 'off')) return d;
+            if (d.length !== 1) return d; // never rewrite escape sequences or pastes
+            let out = d;
+            if (m.ctrl !== 'off') {
+              const b = ctrlByte(d);
+              if (b) out = b;
+            }
+            if (m.alt !== 'off') out = '\x1b' + out;
+            if (out !== d) cbRef.current.onModsUsed?.();
+            return out;
+          };
+
+          cleanups.push(term.onData(d => socket.emit('terminal:input', { terminalId: tid, input: applyMods(d) })).dispose);
           cleanups.push(term.onResize(({ cols, rows }) =>
             socket.emit('terminal:resize', { terminalId: tid, cols, rows }),
           ).dispose);
