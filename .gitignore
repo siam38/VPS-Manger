@@ -5,3 +5,5 @@ ecosystem.config.cjs
 server/audit.log
 *.log
 .DS_Store
+server/sessions.json
+server/sessions.json.tmp

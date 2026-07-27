@@ -1,15 +1,34 @@
+import { getToken, refresh } from './auth';
+
 const BASE = '';
 
-function getToken(): string {
-  return localStorage.getItem('vps_token') || '';
+function headers(): HeadersInit {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken() ?? ''}` };
 }
 
-function headers(): HeadersInit {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` };
+/**
+ * Fetch with one automatic retry after a silent token refresh.
+ *
+ * The renewal timer means a 401 should be rare, but it is still reachable:
+ * a laptop resuming from sleep, a tab throttled to death in the background, or
+ * the server having restarted. Rather than surfacing that to the user as a
+ * failed save, refresh once and replay the request. Concurrent 401s all wait
+ * on the same refresh (see lib/auth).
+ */
+async function authedFetch(url: string, opts?: RequestInit): Promise<Response> {
+  const send = () =>
+    fetch(url, { ...opts, headers: { ...headers(), ...opts?.headers } });
+
+  let res = await send();
+  if (res.status === 401) {
+    const token = await refresh();
+    if (token) res = await send();
+  }
+  return res;
 }
 
 export async function api<T = any>(path: string, opts?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { ...opts, headers: { ...headers(), ...opts?.headers } });
+  const res = await authedFetch(`${BASE}${path}`, opts);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error || res.statusText);
@@ -37,9 +56,7 @@ export function apiDelete<T = any>(path: string, body?: any) {
 export async function fetchBlobUrl(
   path: string
 ): Promise<{ url: string; type: string; size: number }> {
-  const res = await fetch(`${BASE}/api/files/download?path=${encodeURIComponent(path)}`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
-  });
+  const res = await authedFetch(`${BASE}/api/files/download?path=${encodeURIComponent(path)}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error || res.statusText);
@@ -77,7 +94,7 @@ export function uploadFiles(
     xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
     xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
     xhr.open('POST', `${BASE}/api/files/upload`);
-    xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
+    xhr.setRequestHeader('Authorization', `Bearer ${getToken() ?? ''}`);
     xhr.send(fd);
   });
 
@@ -91,9 +108,7 @@ export function uploadFiles(
  * so it cannot leak into access logs, proxy logs, or Referer headers.
  */
 export async function downloadFile(path: string): Promise<void> {
-  const res = await fetch(`${BASE}/api/files/download?path=${encodeURIComponent(path)}`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
-  });
+  const res = await authedFetch(`${BASE}/api/files/download?path=${encodeURIComponent(path)}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error || res.statusText);

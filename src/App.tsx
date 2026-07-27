@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Layout from './components/Layout';
 import { disconnectSocket } from './lib/socket';
 import { ToastProvider } from './lib/toast';
+import { bootstrap, logout as authLogout, onAuthChange, setToken } from './lib/auth';
 
 // Route-level code splitting: each page (and its heavy deps - Monaco, xterm,
 // recharts) is fetched on demand instead of shipping in the initial bundle.
@@ -73,47 +74,53 @@ class ErrorBoundary extends React.Component<
 }
 
 function App() {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('vps_token'));
-  const [verified, setVerified] = useState(false);
+  const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
 
+  // One boot check: try the stored access token, then fall back to the
+  // httpOnly refresh cookie. The second path is the one that matters after
+  // the tab has been closed longer than the access token's lifetime.
   useEffect(() => {
-    if (!token) { setChecking(false); return; }
-    fetch('/api/verify', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => { if (r.ok) { setVerified(true); } else { localStorage.removeItem('vps_token'); setToken(null); } })
-      .catch(() => { localStorage.removeItem('vps_token'); setToken(null); })
-      .finally(() => setChecking(false));
-  }, [token]);
+    let alive = true;
+    bootstrap()
+      .then(ok => { if (alive) setAuthed(ok); })
+      .finally(() => { if (alive) setChecking(false); });
+    return () => { alive = false; };
+  }, []);
 
-  const handleLogin = (t: string) => {
-    localStorage.setItem('vps_token', t);
-    setToken(t);
-    setVerified(true);
+  // The session can end from outside this component: a revoked refresh token,
+  // or a sign-out in another tab. Both surface through this listener.
+  useEffect(() => onAuthChange(token => {
+    if (!token) { disconnectSocket(); setAuthed(false); }
+  }), []);
+
+  const handleLogin = (token: string, expiresIn?: number) => {
+    setToken(token, expiresIn ?? 900);
+    setAuthed(true);
   };
 
-  const handleLogout = () => {
-    // Tear down the authenticated socket before dropping the token, otherwise
+  const handleLogout = async () => {
+    // Tear down the authenticated socket before dropping credentials, otherwise
     // the previous session's connection stays open server-side.
     disconnectSocket();
-    localStorage.removeItem('vps_token');
-    setToken(null);
-    setVerified(false);
+    await authLogout(); // revokes the refresh token family on the server too
+    setAuthed(false);
   };
 
   if (checking) {
     return (
       <ErrorBoundary>
-        <div className="h-screen flex items-center justify-center bg-dark-900">
+        <div className="h-screen flex items-center justify-center bg-canvas">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            <span className="text-dark-300 text-sm">Loading...</span>
+            <span className="text-muted text-meta">Restoring session…</span>
           </div>
         </div>
       </ErrorBoundary>
     );
   }
 
-  if (!token || !verified) {
+  if (!authed) {
     return (
       <ErrorBoundary>
         <ToastProvider>

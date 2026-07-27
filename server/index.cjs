@@ -17,6 +17,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const crypto = require('crypto');
 const platform = require('./platform.cjs');
+const sessionStore = require('./sessions.cjs');
 
 const app = express();
 const server = http.createServer(app);
@@ -190,6 +191,17 @@ const loginLimiter = rateLimit({
   validate: { xForwardedForHeader: false },
 });
 
+// Refresh is a normal part of an active session — roughly four times an hour
+// per tab — so this ceiling only catches something genuinely abusive.
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many refresh attempts.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+});
+
 // ─── Middleware ───
 app.use(helmet({
   contentSecurityPolicy: {
@@ -222,8 +234,59 @@ app.set('trust proxy', 1);
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // ─── Auth helpers ───
+//
+// Access tokens are deliberately short lived. They are the only credential a
+// script on the page can read, so their value to an attacker is capped at this
+// window. Continuity comes from the httpOnly refresh cookie instead — see
+// server/sessions.cjs.
+const ACCESS_TTL = '15m';
+
 function generateToken(payload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '30m' }); // Changed to 30 minutes
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TTL });
+}
+
+/**
+ * Minimal cookie reader.
+ *
+ * Deliberately not pulling in cookie-parser: we need exactly one cookie, and
+ * a transitive `cookie` package that happens to be installed today is not a
+ * dependency we control.
+ */
+function readCookie(req, name) {
+  const header = req.headers.cookie;
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    if (part.slice(0, idx).trim() !== name) continue;
+    try { return decodeURIComponent(part.slice(idx + 1).trim()); }
+    catch { return null; }
+  }
+  return null;
+}
+
+/**
+ * The panel is served over plain HTTP locally and over HTTPS through the
+ * Cloudflare Tunnel. Hard-coding `secure: true` would silently drop the cookie
+ * on the local origin, so it follows the actual protocol the request arrived
+ * on. `trust proxy` is already set, so req.secure reflects X-Forwarded-Proto.
+ */
+function setRefreshCookie(req, res, token) {
+  const secure = req.secure || req.get('x-forwarded-proto') === 'https';
+  res.cookie(sessionStore.COOKIE_NAME, token, {
+    httpOnly: true,      // unreadable from JavaScript, so XSS cannot lift it
+    sameSite: 'strict',  // not sent cross-site, so CSRF cannot drive a refresh
+    secure,
+    path: '/api',        // only ever sent to the API, never to static assets
+    maxAge: sessionStore.REFRESH_TTL_MS,
+  });
+}
+
+function clearRefreshCookie(req, res) {
+  const secure = req.secure || req.get('x-forwarded-proto') === 'https';
+  res.clearCookie(sessionStore.COOKIE_NAME, {
+    httpOnly: true, sameSite: 'strict', secure, path: '/api',
+  });
 }
 
 function verifyToken(token) {
@@ -303,41 +366,91 @@ app.post('/api/login', loginLimiter, (req, res) => {
     return res.status(401).json({ error: 'Invalid password' });
   }
   
-  // Success - clear failed attempts and generate token
+  // Success - clear failed attempts and issue credentials
   clearFailedAttempts(clientIP);
   const token = generateToken({ authenticated: true, ts: Date.now() });
+  const { token: refreshToken } = sessionStore.issue({
+    ip: clientIP,
+    userAgent,
+  });
+  setRefreshCookie(req, res, refreshToken);
   auditLog('login_attempt', clientIP, userAgent, { result: 'success' });
-  
-  res.json({ success: true, token });
+
+  res.json({ success: true, token, expiresIn: 900 });
 });
 
 app.get('/api/verify', authMiddleware, (req, res) => {
   res.json({ valid: true });
 });
 
-// ─── Token Refresh Route ───
-app.post('/api/refresh', (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1] || req.body.token;
+// ─── Token refresh ───
+//
+// Called by the browser shortly before the access token expires, and once on
+// page load. Authorised by the httpOnly refresh cookie alone — an expired
+// access token must still be able to refresh, otherwise the whole mechanism
+// would be pointless.
+app.post('/api/refresh', refreshLimiter, (req, res) => {
   const clientIP = req.ip;
   const userAgent = req.get('User-Agent') || '';
-  
-  if (!token) {
-    auditLog('token_refresh', clientIP, userAgent, { result: 'no_token' });
-    return res.status(401).json({ error: 'No token provided' });
+  const presented = readCookie(req, sessionStore.COOKIE_NAME);
+
+  if (!presented) {
+    return res.status(401).json({ error: 'No session' });
   }
-  
-  const decoded = verifyToken(token);
-  if (!decoded) {
-    auditLog('token_refresh', clientIP, userAgent, { result: 'invalid_token' });
-    return res.status(401).json({ error: 'Invalid token' });
+
+  const result = sessionStore.rotate(presented, { ip: clientIP, userAgent });
+
+  if (!result.ok) {
+    // A lost race means another tab rotated microseconds earlier and the
+    // cookie it set is already the live one. Ask this tab to retry rather
+    // than destroying a perfectly good session.
+    if (result.reason === 'race') {
+      return res.status(409).json({ error: 'Refresh in progress', retry: true });
+    }
+    if (result.reason === 'reuse') {
+      auditLog('token_refresh', clientIP, userAgent, { result: 'reuse_detected' });
+    } else {
+      auditLog('token_refresh', clientIP, userAgent, { result: result.reason });
+    }
+    clearRefreshCookie(req, res);
+    return res.status(401).json({ error: 'Session expired' });
   }
-  
-  // Generate new token
+
+  setRefreshCookie(req, res, result.token);
   const newToken = generateToken({ authenticated: true, ts: Date.now() });
   auditLog('token_refresh', clientIP, userAgent, { result: 'success' });
-  
-  res.json({ success: true, token: newToken });
+
+  res.json({ success: true, token: newToken, expiresIn: 900 });
 });
+
+// ─── Logout ───
+//
+// Revokes the whole token family server-side. Dropping the client's copy is
+// not enough — a refresh token that still validates is a live credential.
+app.post('/api/logout', (req, res) => {
+  const presented = readCookie(req, sessionStore.COOKIE_NAME);
+  if (presented) sessionStore.revoke(presented);
+  clearRefreshCookie(req, res);
+  auditLog('logout', req.ip, req.get('User-Agent'), { result: 'success' });
+  res.json({ success: true });
+});
+
+// Active sign-ins, and a way to cut them all off from any one of them.
+app.get('/api/sessions', authMiddleware, (req, res) => {
+  res.json({ sessions: sessionStore.list() });
+});
+
+app.post('/api/sessions/revoke-all', authMiddleware, (req, res) => {
+  sessionStore.revokeAll();
+  clearRefreshCookie(req, res);
+  auditLog('sessions_revoked', req.ip, req.get('User-Agent'), { scope: 'all' });
+  res.json({ success: true });
+});
+
+// The old /api/refresh lived here: it renewed an access token using that same
+// access token, so once it expired there was nothing left to refresh with and
+// the user was bounced to the login form. Nothing on the frontend ever called
+// it anyway. Replaced by the cookie-authorised route above.
 
 // ─── Audit Logs Route ───
 app.get('/api/audit/logs', authMiddleware, async (req, res) => {

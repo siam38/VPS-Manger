@@ -4,6 +4,7 @@ import {
   LayoutDashboard, FolderOpen, Terminal, Cpu, Boxes, GitBranch,
   LogOut, Menu, X, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
+import Footer from './Footer';
 
 interface Props { children: React.ReactNode; onLogout: () => void; }
 
@@ -28,6 +29,9 @@ export default function Layout({ children, onLogout }: Props) {
     () => localStorage.getItem('vps_sidebar_collapsed') === 'true'
   );
 
+  const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '3.1.0';
+  const host = typeof window !== 'undefined' ? window.location.hostname : '';
+
   useEffect(() => {
     localStorage.setItem('vps_sidebar_collapsed', String(collapsed));
   }, [collapsed]);
@@ -36,6 +40,10 @@ export default function Layout({ children, onLogout }: Props) {
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
   const current = NAV.find(n => n.path === location.pathname);
+
+  // Terminal and Files size their own panes to the viewport; appending a footer
+  // below them would create a scrollbar on a layout designed not to have one.
+  const fullBleed = location.pathname === '/terminal' || location.pathname === '/files';
 
   return (
     <div className="min-h-[100dvh] lg:h-[100dvh] flex bg-canvas lg:overflow-hidden max-lg:flex-col">
@@ -59,7 +67,19 @@ export default function Layout({ children, onLogout }: Props) {
             <span className="text-accent text-body font-bold leading-none">V</span>
           </div>
           {!collapsed && (
-            <span className="font-semibold text-ink text-body tracking-tight">VPS Manager</span>
+            /* The rail used to show the product name alone. Pairing it with the
+             * running version means the answer to "what's actually deployed?"
+             * is on screen instead of requiring a shell. */
+            <div className="min-w-0 leading-tight">
+              <div className="font-semibold text-ink text-body tracking-tight truncate">
+                VPS Manager
+              </div>
+              <div className="flex items-center gap-1.5 text-label text-muted">
+                <span className="font-mono tabular">v{version}</span>
+                <span className="text-line-strong" aria-hidden="true">·</span>
+                <span className="truncate">{host}</span>
+              </div>
+            </div>
           )}
           <button
             onClick={() => setSidebarOpen(false)}
@@ -120,6 +140,12 @@ export default function Layout({ children, onLogout }: Props) {
             <LogOut className="w-[18px] h-[18px] shrink-0" />
             {!collapsed && <span>Sign out</span>}
           </button>
+
+          {/* Only on the full-height routes. Those pages size their panes to
+              the viewport and cannot carry a footer below them, so the rail
+              is the signature's only home there. Everywhere else the real
+              footer does the job — rendering both put it on screen twice. */}
+          {!collapsed && fullBleed && <Footer compact />}
         </div>
       </aside>
 
@@ -140,8 +166,12 @@ export default function Layout({ children, onLogout }: Props) {
           </span>
         </header>
 
-        <main className="flex-1 lg:overflow-auto">
-          {children}
+        <main className="flex-1 lg:overflow-auto flex flex-col min-h-0">
+          <div className="flex-1 min-h-0">{children}</div>
+          {/* Hidden on the two routes that own their full height — a terminal
+              or file pane sized to the viewport must not be pushed off it.
+              Those routes still get the signature via the sidebar rail. */}
+          {!fullBleed && <Footer />}
         </main>
       </div>
     </div>

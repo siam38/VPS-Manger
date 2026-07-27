@@ -42,6 +42,7 @@ System monitoring · file management · web terminal · process control · PM2 o
 - [Configuration](#configuration)
 - [Running in production](#running-in-production)
 - [Security model](#security-model)
+  - [Sessions](#sessions)
 - [API reference](#api-reference)
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
@@ -179,6 +180,19 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 ## Features
 
 <details open>
+<summary><strong>Sessions &amp; sign-in</strong></summary>
+
+- **Stay signed in for 30 days** — tokens renew silently in the background, so a
+  long editing session is never interrupted by an expiry
+- Renewal also fires on tab focus and network recovery, which is what makes a
+  closed laptop lid or a sleeping phone survive the gap
+- Rotating refresh tokens in an `httpOnly` cookie, hashed at rest, with replay
+  detection and server-side revocation — see [Sessions](#sessions)
+- Sign out ends the session on the server and across every open tab
+
+</details>
+
+<details open>
 <summary><strong>System monitoring</strong></summary>
 
 - Live CPU, memory, disk and network throughput pushed over Socket.IO
@@ -269,6 +283,20 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 
 </details>
 
+<details open>
+<summary><strong>Interface</strong></summary>
+
+- **Signature footer** on every page, and in the sidebar rail on the full-height
+  Terminal and Files views where a footer below the pane would break the layout
+- **Version and host in the sidebar**, so what is actually deployed is on screen
+  rather than requiring a shell. The version is injected from `package.json` at
+  build time — it cannot drift from the release that shipped
+- **Two-column sign-in** on desktop stating what the panel manages, collapsing to
+  a compact header on mobile where a marketing column would only be an obstacle
+- Accent colour is interaction-only; semantic colours are reserved for state
+
+</details>
+
 ---
 
 ## Architecture
@@ -279,7 +307,7 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 │  React 18 · TypeScript · Tailwind · Vite                     │
 │  Route-level code splitting (React.lazy)                     │
 └───────────────┬──────────────────────────┬───────────────────┘
-                │ REST (JWT bearer)        │ Socket.IO (JWT handshake)
+                │ REST (bearer, auto-renewed)  │ Socket.IO (token handshake)
 ┌───────────────▼──────────────────────────▼───────────────────┐
 │  Express server  (server/index.cjs)                          │
 │  helmet · rate limiting · path jail · audit log              │
@@ -303,14 +331,25 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 
 ```
 src/
-├── components/     Layout shell, Git-sync wizard,
+├── components/     Layout shell, Footer, Git-sync wizard,
 │                   CodeEditor / FileEditor / FilePreview, files/FileRow
-├── lib/            api.ts (fetch + auth), socket.ts, utils.ts, toast.tsx,
+├── lib/            api.ts (fetch + 401 replay), auth.ts (token lifecycle),
+│                   socket.ts, utils.ts, toast.tsx,
 │                   fileTypes.ts, editorTheme.ts, editorLanguages.ts
 ├── pages/          Dashboard, FileManager, Terminal, Processes,
 │                   PM2Manager, GitSync, Login
 ├── index.css       Design tokens + component primitives
 └── App.tsx         Auth gate, error boundary, toast provider, lazy routes
+```
+
+**Server layout**
+
+```
+server/
+├── index.cjs       Routes, Socket.IO, PTY, auth middleware
+├── platform.cjs    Boot-time host detection (user, homes, init system, PM2_HOME)
+├── sessions.cjs    Refresh-token store: rotation, reuse detection, revocation
+└── sessions.json   Hashed refresh tokens, mode 0600, gitignored
 ```
 
 Pages are lazy-loaded, so xterm and the heavier managers are fetched only when their
@@ -473,7 +512,14 @@ port at all.
 **What is implemented**
 
 - **Password authentication** with timing-safe comparison
-- **JWT sessions**, verified on every REST request and on the Socket.IO handshake
+- **Persistent sessions** — a short-lived access token (15 min) paired with a
+  long-lived refresh token held in an `httpOnly`, `SameSite=Strict` cookie.
+  The browser renews silently in the background, so an active session never
+  interrupts you to retype the password. See [Sessions](#sessions).
+- **Refresh token rotation** with reuse detection — each refresh invalidates the
+  previous token, and replaying a spent one revokes the entire token family
+- **Server-side revocation** — signing out invalidates the session on the server,
+  not just in the browser
 - **Login rate limiting** plus per-IP lockout after repeated failures, with automatic expiry
 - **Path jail** — all filesystem operations resolve against `ALLOWED_BASES`
 - **`helmet`** security headers
@@ -487,7 +533,40 @@ port at all.
 | Plain HTTP exposes the password and token | Terminate TLS in a reverse proxy or tunnel |
 | Panel reachable from the internet | Firewall the port; expose only through the proxy |
 | Full shell access by design | Treat the password as root-equivalent; use a long random value |
-| Token stored in `localStorage` | Vulnerable to XSS. Do not run untrusted third-party scripts on this origin. |
+| Access token stored in `localStorage` | Vulnerable to XSS, but expires in 15 minutes. The durable credential is the `httpOnly` refresh cookie, which JavaScript cannot read. Still, do not run untrusted third-party scripts on this origin. |
+
+### Sessions
+
+Earlier versions issued a single 30-minute JWT and never renewed it. Half an hour
+into editing a file, the next save returned 401 and dropped you back at the login
+form — mid-edit, with unsaved work. That is fixed.
+
+| | Access token | Refresh token |
+|---|---|---|
+| Lifetime | 15 minutes | 30 days |
+| Stored in | `localStorage` (readable by scripts) | `httpOnly` cookie (**not** readable by scripts) |
+| Sent as | `Authorization: Bearer` header | Automatically, to `/api` only |
+| Rotates | On every renewal | On every use |
+
+The browser renews at ~80% of the access token's lifetime, and again whenever the
+tab regains focus or the network returns — background timers are throttled in
+hidden tabs and frozen on sleeping phones, so a timer alone would not survive a
+closed laptop lid. If a request still returns 401, the client refreshes once and
+replays it; concurrent 401s share a single refresh rather than stampeding.
+
+The practical effect: **you stay signed in for 30 days without retyping the
+password**, and long editing sessions are never interrupted. What an attacker
+could lift from `localStorage` now expires in fifteen minutes.
+
+Refresh tokens are stored only as SHA-256 hashes in `server/sessions.json`
+(mode `0600`), so the file is not a set of usable credentials if it leaks. Sessions
+survive a server restart. Rotation makes replay detectable: presenting an
+already-spent token outside a short grace window revokes every token descended
+from that login.
+
+`POST /api/logout` revokes server-side. To end **every** session on all devices
+— after exposing the password, for example — call `POST /api/sessions/revoke-all`,
+or simply delete `server/sessions.json` and restart.
 
 > **Warning**
 > This panel grants terminal access to the host. Anyone who obtains the password
@@ -508,16 +587,21 @@ is ESM-only and the server is CommonJS.
 
 ## API reference
 
-All routes require `Authorization: Bearer <token>` except `POST /api/login`.
+All routes require `Authorization: Bearer <token>` except `POST /api/login` and
+`POST /api/refresh` (which authenticates via the refresh cookie instead, since it
+must work when the access token has already expired).
 
 <details>
 <summary><strong>Auth</strong></summary>
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/login` | Exchange password for a JWT |
-| `GET` | `/api/verify` | Validate the current token |
-| `POST` | `/api/refresh` | Issue a fresh token |
+| `POST` | `/api/login` | Exchange password for an access token; sets the refresh cookie |
+| `GET` | `/api/verify` | Validate the current access token |
+| `POST` | `/api/refresh` | Rotate the refresh cookie and issue a fresh access token |
+| `POST` | `/api/logout` | Revoke this session server-side and clear the cookie |
+| `GET` | `/api/sessions` | List active sign-ins |
+| `POST` | `/api/sessions/revoke-all` | Sign out every device |
 
 </details>
 
@@ -634,6 +718,10 @@ component primitives (`.card`, `.btn`, `.pill`, `.row`, `.field`, `.empty`) live
 | `node-pty` fails to install | Missing native build toolchain | `apt install build-essential python3` |
 | PM2 section empty | PM2 not installed for the server's user | `npm install -g pm2` and confirm `pm2 list` works as that user |
 | Locked out after failed logins | Per-IP lockout triggered | Wait for expiry, or restart the server to clear it |
+| Signed out again after ~15 minutes | The refresh cookie is not reaching the server | It is scoped to `/api` and `SameSite=Strict`. Confirm the proxy forwards cookies and does not strip `Set-Cookie`, and that the panel is reached on one consistent origin |
+| Signed out after switching between `http://` and `https://` | The cookie's `Secure` flag follows the protocol it was issued on | Use one origin — sign in again on the one you intend to keep using |
+| Everyone signed out after a redeploy | `JWT_SECRET` changed, invalidating access tokens | Keep `JWT_SECRET` stable across deploys; sessions themselves survive restarts |
+| Want to force sign-out everywhere | Password exposed, or a device lost | `POST /api/sessions/revoke-all`, or delete `server/sessions.json` and restart |
 
 ---
 

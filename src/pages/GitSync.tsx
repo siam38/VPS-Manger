@@ -2,13 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../lib/toast';
 import { GitBranch, RefreshCw, Download, Upload, Eye, Undo2, Save, GitCommitHorizontal, Activity, FolderGit2, X, Key, User, Mail, Wifi, WifiOff, ExternalLink, Copy, CheckCircle, XCircle, Settings, Unlink, ArrowRight, Github, Loader2, ShieldCheck, AlertTriangle, Archive, ArchiveRestore, GitCompare, DownloadCloud, Info, GitBranchPlus, Tag, Trash2 } from 'lucide-react';
 
+import { api as authedApi } from '../lib/api';
+
+// Routed through lib/api so git calls get the same silent token refresh and
+// 401 replay as everything else. This used to read localStorage directly,
+// which meant a long sync could still die on an expired token.
 const api = async (endpoint: string, options: RequestInit = {}) => {
-  const token = localStorage.getItem('vps_token');
-  const res = await fetch(`/api/git${endpoint}`, {
-    ...options,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...options.headers },
-  });
-  return res.json();
+  try {
+    return await authedApi(`/api/git${endpoint}`, options);
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Request failed' };
+  }
 };
 
 interface Repo { path: string; branch: string; remote: string; }
