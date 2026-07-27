@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Plus, X, Search, ChevronUp, ChevronDown, Copy, ClipboardPaste,
   Type, Eraser, SplitSquareHorizontal, Terminal as TerminalIcon,
-  RotateCcw, Zap,
+  RotateCcw, Zap, ChevronsUpDown,
 } from 'lucide-react';
 import TerminalPane, { type TerminalPaneHandle, type PaneStatus } from '../components/TerminalPane';
 import TerminalKeyBar from '../components/TerminalKeyBar';
@@ -193,6 +193,9 @@ export default function Terminal() {
     return parts.length > 2 ? '…/' + parts.slice(-2).join('/') : t;
   };
 
+  /** Only a live shell can accept input, so controls that write to it gate on it. */
+  const live = active?.status === 'ready';
+
   const statusDot = (st: PaneStatus) =>
     st === 'ready' ? 'bg-success'
       : st === 'connecting' ? 'bg-warning animate-pulse'
@@ -214,7 +217,13 @@ export default function Terminal() {
   const splitSession = split ? sessions.find(s => s.id === split) : null;
 
   return (
-    <div className="h-full flex flex-col animate-fade-in min-h-0">
+    // `h-full` alone collapses here: the shell's <main> is `flex-1` on a block
+    // box, so it has no definite height for a percentage child to resolve
+    // against below `lg`. That left this page 176px tall, the absolutely
+    // positioned panes in a 0-height container, and the key bar riding up over
+    // the prompt. Pin to the viewport minus the 56px mobile header instead.
+    // dvh (not vh) so the bar tracks mobile browser chrome collapsing.
+    <div className="max-lg:h-[calc(100dvh-3.5rem)] lg:h-full flex flex-col animate-fade-in min-h-0 overflow-hidden">
       {/* ── Tab strip ────────────────────────────────────────────────
           Tabs carry a live status dot and the shell's own title, so a
           disconnected or exited session is visible without opening it. */}
@@ -263,6 +272,16 @@ export default function Terminal() {
             <Plus className="w-4 h-4" strokeWidth={1.75} />
           </button>
         </div>
+
+        {/* The tab row was ~1100px of dead space at 1440. Session identity now
+            lives here, where it is glanceable, instead of in an 11px ticker
+            pinned to the bottom of the window. */}
+        <div className="hidden md:flex items-center gap-2 px-3 shrink-0 text-label font-mono text-subtle">
+          <TerminalIcon className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden />
+          <span className="truncate max-w-[22rem]" title={active?.title || ''}>
+            {active?.title || 'bash'}
+          </span>
+        </div>
       </div>
 
       {/* ── Toolbar ──────────────────────────────────────────────────
@@ -290,6 +309,17 @@ export default function Terminal() {
                   <div className="text-label font-mono text-subtle truncate">{q.cmd}</div>
                 </button>
               ))}
+              {/* Shortcut hints belong in a palette you open, not as permanent
+                  11px chrome welded to the bottom of the window. */}
+              <div className="mt-1 pt-2 border-t border-line px-3 pb-1 space-y-1">
+                <div className="text-label uppercase tracking-wide text-subtle mb-1">Shortcuts</div>
+                {[['New shell', 'Ctrl+Shift+T'], ['Close shell', 'Ctrl+Shift+W'], ['Find', 'Ctrl+Shift+F']].map(([k, v]) => (
+                  <div key={v} className="flex justify-between gap-3 text-label">
+                    <span className="text-subtle">{k}</span>
+                    <span className="font-mono text-muted">{v}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -300,7 +330,7 @@ export default function Terminal() {
           <Copy className="w-3.5 h-3.5" strokeWidth={1.75} />
           <span className="max-lg:hidden">Copy</span>
         </button>
-        <button onClick={doPaste} className="btn btn-sm btn-quiet gap-1.5" aria-label="Paste from clipboard">
+        <button onClick={doPaste} disabled={!live} className="btn btn-sm btn-quiet gap-1.5" aria-label="Paste from clipboard">
           <ClipboardPaste className="w-3.5 h-3.5" strokeWidth={1.75} />
           <span className="max-lg:hidden">Paste</span>
         </button>
@@ -318,9 +348,12 @@ export default function Terminal() {
         </button>
 
         <div className="relative" ref={fontRef}>
+          {/* A bare "14px" label reads as static text. The chevron is what says
+              this is a control you can open. */}
           <button onClick={() => setFontOpen(o => !o)} aria-expanded={fontOpen} className="btn btn-sm btn-quiet gap-1.5" aria-label="Text size">
             <Type className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span className="max-lg:hidden tabular">{fontSize}px</span>
+            <ChevronsUpDown className="w-3 h-3 text-subtle" strokeWidth={1.75} aria-hidden />
           </button>
           {fontOpen && (
             <div className="absolute z-30 mt-1 left-0 w-52 bg-raised border border-line rounded-card shadow-xl p-3">
@@ -345,6 +378,8 @@ export default function Terminal() {
             if (!other) { toast.info('Open a second shell to split'); return null; }
             return other.id;
           })}
+          disabled={sessions.length < 2}
+          title={sessions.length < 2 ? 'Open a second shell to split' : 'Toggle split view'}
           className={`btn btn-sm btn-quiet gap-1.5 max-md:hidden ${split ? 'text-accent' : ''}`}
           aria-label="Toggle split view"
         >
@@ -434,16 +469,21 @@ export default function Terminal() {
         )}
       </div>
 
-      {/* ── Status bar (desktop) ─────────────────────────────────── */}
+      {/* ── Status bar (desktop) ───────────────────────────────────
+          Shortcut hints used to live here as permanent low-contrast chrome —
+          onboarding content occupying the one strip that should carry live
+          state. Moved into the Commands popover. */}
       <div className="hidden md:flex items-center gap-3 px-3 h-7 bg-surface border-t border-line text-label text-subtle shrink-0">
         <span className="flex items-center gap-1.5">
           <span className={`w-1.5 h-1.5 rounded-full ${statusDot(active?.status ?? 'connecting')}`} aria-hidden />
-          <span className="capitalize">{active?.status ?? 'connecting'}</span>
+          <span className="capitalize text-muted">{active?.status ?? 'connecting'}</span>
         </span>
         <span className="w-px h-3 bg-line" aria-hidden />
         <span className="font-mono tabular">{sessions.length} session{sessions.length === 1 ? '' : 's'}</span>
+        <span className="w-px h-3 bg-line" aria-hidden />
+        <span className="font-mono tabular">{fontSize}px</span>
         <div className="flex-1" />
-        <span className="font-mono">Ctrl+Shift+T new · Ctrl+Shift+W close · Ctrl+Shift+F find</span>
+        {active?.detail && <span className="font-mono truncate max-w-[28rem]">{active.detail}</span>}
       </div>
 
       {/* Mobile: the keys a phone keyboard cannot produce. */}

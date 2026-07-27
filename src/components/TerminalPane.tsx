@@ -110,19 +110,6 @@ const TerminalPane = React.forwardRef<TerminalPaneHandle, Props>(function Termin
 
       term.open(hostRef.current);
 
-      // WebGL renderer: the DOM renderer repaints every cell as an element and
-      // visibly stutters on fast output (a build log, `journalctl -f`). Loaded
-      // after open() and guarded — WebGL is unavailable in some mobile browsers
-      // and in hardware-acceleration-off desktops, where we fall back silently.
-      try {
-        const { WebglAddon } = await import('@xterm/addon-webgl');
-        const webgl = new WebglAddon();
-        webgl.onContextLoss(() => webgl.dispose());
-        term.loadAddon(webgl);
-      } catch {
-        /* canvas/DOM fallback is fine */
-      }
-
       termRef.current = term;
       fitRef.current = fit;
       searchRef.current = search;
@@ -200,6 +187,26 @@ const TerminalPane = React.forwardRef<TerminalPaneHandle, Props>(function Termin
           term.focus();
         },
       );
+
+      // WebGL renderer: the DOM renderer repaints every cell as an element and
+      // visibly stutters on fast output (a build log, `journalctl -f`).
+      //
+      // This is loaded *after* the PTY request is dispatched, deliberately.
+      // It previously sat above the emit, which gated starting the user's
+      // shell behind a purely cosmetic download — if the chunk stalled, the
+      // terminal mounted, sized correctly, and then hung on "connecting"
+      // forever because the create request was never sent. A renderer upgrade
+      // must never be on the critical path to a working shell.
+      try {
+        const { WebglAddon } = await import('@xterm/addon-webgl');
+        if (cancelled || disposedRef.current) return;
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => webgl.dispose());
+        term.loadAddon(webgl);
+      } catch {
+        /* canvas/DOM fallback is fine — WebGL is absent on some mobile
+           browsers and with hardware acceleration disabled */
+      }
     })();
 
     return () => {
