@@ -45,6 +45,28 @@ body {
   font-feature-settings: 'tnum';
 }
 
+/*
+ * Scrollable strips (breadcrumb, key bar, toolbars) hide their scrollbar.
+ * This class was referenced by the breadcrumb but never defined, so raw
+ * browser scrollbar chrome was bleeding into the UI on mobile.
+ */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Fade the left edge of a horizontally scrolled path instead of hard-cutting. */
+.mask-fade-l {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 18px);
+  mask-image: linear-gradient(to right, transparent 0, #000 18px);
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

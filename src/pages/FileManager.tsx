@@ -464,11 +464,12 @@ export default function FileManager() {
           ) : (
           <nav
             aria-label="Breadcrumb"
-            className="group flex-1 min-w-0 flex items-center gap-0.5 overflow-x-auto scrollbar-none
+            className="group flex-1 min-w-0 flex items-center justify-end sm:justify-start gap-0.5
+                       overflow-x-auto scrollbar-none mask-fade-l sm:[mask-image:none]
                        rounded-control hover:bg-raised/50 transition-colors"
             onDoubleClick={beginEditPath}
           >
-            <span className="flex items-center gap-0.5">
+            <span className="flex items-center gap-0.5 shrink-0">
               {/* Explicit filesystem root, so a one-segment path like /root
                   reads as a path and not as a bare word (or a username). */}
               <button
@@ -551,14 +552,14 @@ export default function FileManager() {
          * overflow sheet — six unlabelled icons in a row was unreadable, and
          * the targets were under the 44px floor.
          */}
-        <div className="flex items-center gap-1.5 px-2 sm:px-3 h-12 sm:h-11 border-t border-line/60">
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 h-14 sm:h-11 border-t border-line/60 min-w-0">
           {/* Actions cluster. One filled primary (Upload) and a single New
            * split button. Previously "New folder" and "New file" each burned
            * a top-level slot on the same verb, and every control had equal
            * weight — so nothing read as primary. */}
           <div className="relative shrink-0">
             <button
-              className="btn btn-quiet btn-sm max-sm:!h-11 max-sm:!px-3"
+              className="btn btn-quiet btn-sm max-sm:!h-10 max-sm:!px-2.5"
               onClick={e => { e.stopPropagation(); setNewOpen(o => !o); setSortOpen(false); setJumpOpen(false); setOcOpen(false); }}
               aria-expanded={newOpen}
               aria-haspopup="menu"
@@ -588,7 +589,7 @@ export default function FileManager() {
           </div>
 
           <button
-            className="btn btn-primary btn-sm shrink-0 max-sm:!h-11 max-sm:!px-3"
+            className="btn btn-primary btn-sm shrink-0 max-sm:!h-10 max-sm:!px-2.5"
             onClick={() => uploadRef.current?.click()}
           >
             <Upload className="w-4 h-4" aria-hidden="true" />
@@ -597,7 +598,7 @@ export default function FileManager() {
 
           {clipboard && (
             <button
-              className="btn btn-primary btn-sm shrink-0 max-sm:!h-11"
+              className="btn btn-quiet btn-sm shrink-0 max-sm:!h-10 max-sm:!px-2.5"
               onClick={paste}
             >
               <ClipboardPaste className="w-4 h-4" aria-hidden="true" />
@@ -950,8 +951,8 @@ export default function FileManager() {
 
       {/* ── Column headers (list view, desktop) ─────────────────── */}
       {view === 'list' && visible.length > 0 && (
-        <div className="hidden sm:grid shrink-0 grid-cols-[28px_1fr_auto_auto_36px] items-center gap-2
-                        px-3 h-8 border-b border-line bg-surface/60 text-label text-muted">
+        <div className="hidden sm:grid shrink-0 grid-cols-[24px_1fr_auto_auto_auto_32px] items-center gap-3
+                        px-2 sm:px-3 h-7 border-b border-line bg-surface/60 text-label text-muted">
           <span
             role="checkbox"
             aria-checked={allSelected}
@@ -959,12 +960,15 @@ export default function FileManager() {
             onClick={() =>
               setSelected(allSelected ? new Set() : new Set(visible.map(i => i.path)))
             }
-            className={`w-4 h-4 mx-auto rounded border cursor-pointer flex items-center justify-center
+            className={`w-4 h-4 mx-auto rounded-chip border cursor-pointer flex items-center justify-center
                         ${allSelected ? 'bg-accent border-accent' : 'border-line-strong'}`}
           >
             {allSelected && <span className="text-canvas text-[10px] leading-none">✓</span>}
           </span>
           <SortHeader label="Name" active={sortKey === 'name'} dir={sortDir} onClick={() => toggleSort('name')} />
+          <span className="hidden xl:block w-14 text-right">
+            <SortHeader label="Type" align="right" active={sortKey === 'type'} dir={sortDir} onClick={() => toggleSort('type')} />
+          </span>
           <SortHeader label="Size" align="right" width="w-20" active={sortKey === 'size'} dir={sortDir} onClick={() => toggleSort('size')} />
           <span className="hidden lg:block w-28 text-right">
             <SortHeader label="Modified" align="right" active={sortKey === 'modified'} dir={sortDir} onClick={() => toggleSort('modified')} />
