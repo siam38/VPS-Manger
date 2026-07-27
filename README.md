@@ -6,10 +6,26 @@
 
 System monitoring · file management · web terminal · process control · PM2 orchestration · Git sync
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-14b8a6.svg)](./LICENSE)
-[![Node](https://img.shields.io/badge/Node-%E2%89%A518-339933.svg)](https://nodejs.org)
-[![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6.svg)](https://www.typescriptlang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-14b8a6.svg?style=for-the-badge)](./LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-14b8a6.svg?style=for-the-badge)](#development)
+[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)](#requirements)
+
+### Built with
+
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A518-5FA04E?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Express](https://img.shields.io/badge/Express-4-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com)
+[![Socket.IO](https://img.shields.io/badge/Socket.IO-4-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://socket.io)
+[![PM2](https://img.shields.io/badge/PM2-2B037A?style=for-the-badge&logo=pm2&logoColor=white)](https://pm2.keymetrics.io)
+
+[![CodeMirror](https://img.shields.io/badge/CodeMirror-6-D30707?style=for-the-badge&logo=codemirror&logoColor=white)](https://codemirror.net)
+[![xterm.js](https://img.shields.io/badge/xterm.js-5-2C3E50?style=for-the-badge&logo=gnometerminal&logoColor=white)](https://xtermjs.org)
+[![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)](https://git-scm.com)
+[![Systemd](https://img.shields.io/badge/systemd-30B9DB?style=for-the-badge&logo=systemd&logoColor=white)](https://systemd.io)
 
 </div>
 
@@ -43,15 +59,10 @@ It is deliberately **single-user**: one password, one operator. There are no use
 accounts, roles, or teams. That keeps the security surface small and the UI honest —
 every control on screen acts on the machine immediately.
 
-**Design principles**
-
-| Principle | What it means in practice |
-|---|---|
-| Colour carries meaning | The teal accent marks interaction only. Red/amber/green are reserved for state — never decoration. |
-| Machine data is monospaced | Hostnames, IPs, load averages and byte counts use tabular figures so columns align. |
-| Destructive actions look destructive | Service restarts and process kills are visually separated from read-only lookups. |
-| Accessible by default | WCAG 2.1 AA contrast, visible keyboard focus, `prefers-reduced-motion` respected. |
-| Responsive, not "mobile-adapted" | Every view is verified at 390 px and 1440 px. |
+It is also **host-agnostic**. Paths, the effective user, the SSH identity, the init
+system and PM2's home directory are all detected at boot rather than hard-coded, so
+the panel behaves correctly whether it runs as `root` on Debian or as a normal user
+on Ubuntu.
 
 ---
 
@@ -123,10 +134,27 @@ termination.
 
 ### PM2
 
-Start, stop, restart, reload, delete and inspect PM2 applications. Streams logs over
-WebSocket, and supports saving, restoring and boot-persisting the process list.
+Start, stop, restart, reload, delete and inspect PM2 applications. Logs stream over
+WebSocket into a single docked panel rather than expanding inline under each card.
+Stopped applications show `—` for CPU, memory and uptime instead of counting upward
+from a stale `pm_uptime`.
 
 ![PM2](docs/screenshots/PM2.png)
+
+Boot persistence is reported as three separate facts, because "will my app come back
+after a reboot?" is three questions and conflating them is how processes get lost:
+whether the PM2 daemon starts at boot, whether the process list has been saved, and
+whether an individual app restarts on crash. The panel reads PID 1 directly rather
+than trusting `pm2 startup`, which reports success on hosts where it does nothing.
+
+The **New application** wizard walks from folder → script → options → review. Only the
+name is required; memory limits, scheduled restarts, node arguments and environment
+variables live behind an *Advanced* drawer that shows a count when anything inside it
+is set.
+
+<p align="center">
+  <img src="docs/screenshots/PM2-mobile.png" width="32%" alt="PM2 on mobile" />
+</p>
 
 ### Git sync
 
@@ -215,9 +243,17 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 <summary><strong>PM2 orchestration</strong></summary>
 
 - Full lifecycle: start, stop, restart, reload, delete, flush, reset
-- Guided "new app" wizard with directory browsing
-- Live log streaming with search and filtering
-- Per-app metrics, `save` / `startup` / `resurrect` support
+- **Four-step "new app" wizard** — folder → script → options → review, with directory
+  browsing and detected project files. Only the name is required; memory limits,
+  scheduled restarts, node arguments and environment variables sit behind an
+  *Advanced* drawer that reports how many are set
+- Live log streaming into one docked panel, with search and filtering
+- **Honest boot persistence** — reports whether the daemon starts at boot, whether the
+  process list is saved, and whether each app restarts on crash, as three separate
+  facts. Reads PID 1 rather than trusting `pm2 startup`, and lists apps that are
+  running but missing from the saved dump
+- Per-app metrics, `save` / `resurrect` support; stopped apps report `—` rather than
+  counting uptime upward from a stale timestamp
 
 </details>
 
