@@ -53,6 +53,43 @@ export default function Terminal() {
   const searchInput = useRef<HTMLInputElement>(null);
   const quickRef = useRef<HTMLDivElement>(null);
   const fontRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Track the *visual* viewport, not the layout viewport.
+   *
+   * `100dvh` accounts for collapsing browser chrome but NOT for the on-screen
+   * keyboard: when the keyboard opens the layout viewport keeps its full
+   * height and the key bar is simply pushed underneath it. On a real phone
+   * that means the instant you start typing, Ctrl/Esc/Tab/arrows vanish —
+   * precisely the keys a phone keyboard cannot produce, so the bar is useless
+   * exactly when it is needed. Emulated viewports never show this because
+   * they have no virtual keyboard.
+   *
+   * window.visualViewport reports the region actually visible above the
+   * keyboard, so the page is sized to that instead.
+   */
+  const [viewportH, setViewportH] = useState<number | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return; // older browsers keep the dvh fallback
+    const update = () => {
+      if (window.innerWidth >= 1024) { setViewportH(null); return; }
+      const el = rootRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setViewportH(Math.max(220, Math.round(vv.height - (top - (vv.offsetTop || 0)))));
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
 
   // First session's id is generated in the initializer, so adopt it on mount.
   useEffect(() => {
@@ -133,7 +170,7 @@ export default function Terminal() {
     const t = setTimeout(fitAll, 60);
     window.addEventListener('resize', fitAll);
     return () => { clearTimeout(t); window.removeEventListener('resize', fitAll); };
-  }, [splitId, searchOpen, activeId, sessions.length]);
+  }, [splitId, searchOpen, activeId, sessions.length, viewportH]);
 
   const runSearch = (dir: 'next' | 'prev') => {
     const p = paneOf(activeId);
@@ -184,13 +221,17 @@ export default function Terminal() {
     setSplitId(cur => (cur === id ? fresh : cur));
   };
 
-  /** Shell titles are long and path-shaped; show the informative tail. */
+  /**
+   * Shell titles are path-shaped and long. The tab strip is the scarcest row
+   * on a phone, so show only the leaf (`.openclaw`, not `~/.openclaw`) and let
+   * the toolbar carry the full path.
+   */
   const tabLabel = (s: Session) => {
     if (!s.title) return `Shell ${s.index}`;
     const t = s.title.replace(/^[^:]*:\s*/, '').trim();
     if (!t) return `Shell ${s.index}`;
-    const parts = t.split('/');
-    return parts.length > 2 ? '…/' + parts.slice(-2).join('/') : t;
+    const parts = t.split('/').filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : t;
   };
 
   /** Only a live shell can accept input, so controls that write to it gate on it. */
@@ -222,11 +263,17 @@ export default function Terminal() {
     // positioned panes in a 0-height container, and the key bar riding up over
     // the prompt. Pin to the viewport minus the 56px mobile header instead.
     // dvh (not vh) so the bar tracks mobile browser chrome collapsing.
-    <div className="max-lg:h-[calc(100dvh-3.5rem)] lg:h-full flex flex-col animate-fade-in min-h-0 overflow-hidden">
-      {/* ── Tab strip ────────────────────────────────────────────────
-          Tabs carry a live status dot and the shell's own title, so a
-          disconnected or exited session is visible without opening it. */}
-      <div className="flex items-stretch bg-surface border-b border-line shrink-0">
+    <div
+      ref={rootRef}
+      style={viewportH ? { height: viewportH } : undefined}
+      className="max-lg:h-[calc(100dvh-3.5rem)] lg:h-full flex flex-col animate-fade-in min-h-0 overflow-hidden"
+    >
+      {/* ── Tab strip (desktop only) ─────────────────────────────────
+          On a phone this was a full 44px row holding one short word. Tabs move
+          inline into the toolbar there instead: header + tab strip + toolbar
+          was three stacked bars eating ~27% of the screen before a single line
+          of output. */}
+      <div className="hidden md:flex items-stretch bg-surface border-b border-line shrink-0">
         <div className="flex items-stretch overflow-x-auto scrollbar-none min-w-0 flex-1">
           {sessions.map(s => {
             const on = s.id === activeId;
@@ -287,6 +334,48 @@ export default function Terminal() {
           Quiet ghost controls behind dividers. No filled buttons here —
           nothing in a terminal toolbar is the page's primary action. */}
       <div className="flex items-center gap-1 px-2 h-11 bg-surface border-b border-line shrink-0 overflow-x-auto scrollbar-none">
+        {/* Mobile tabs: inline, so they cost no extra row. */}
+        <div className="md:hidden flex items-center gap-1 shrink-0 max-w-[50%] overflow-x-auto scrollbar-none">
+          {sessions.map(s => {
+            const on = s.id === activeId;
+            return (
+              <button
+                key={s.id}
+                role="tab"
+                aria-selected={on}
+                onClick={() => setActiveId(s.id)}
+                title={s.title || `Shell ${s.index}`}
+                className={`flex items-center gap-1.5 h-8 pl-2 pr-1.5 rounded-control shrink-0 max-w-[8.5rem]
+                  text-meta border transition-colors
+                  ${on ? 'bg-raised text-ink border-line' : 'bg-transparent text-muted border-transparent'}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(s.status)}`} aria-hidden />
+                <span className="truncate font-mono">{tabLabel(s)}</span>
+                {sessions.length > 1 && on && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Close ${tabLabel(s)}`}
+                    onClick={e => { e.stopPropagation(); closeSession(s.id); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); closeSession(s.id); } }}
+                    className="w-5 h-5 rounded-chip flex items-center justify-center text-subtle shrink-0"
+                  >
+                    <X className="w-3 h-3" strokeWidth={2} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          <button
+            onClick={addSession}
+            aria-label="New shell session"
+            className="w-8 h-8 shrink-0 rounded-control flex items-center justify-center text-muted"
+          >
+            <Plus className="w-4 h-4" strokeWidth={1.75} />
+          </button>
+          <span className="w-px h-5 bg-line shrink-0 mx-0.5" aria-hidden />
+        </div>
+
         <div className="relative" ref={quickRef}>
           <button
             onClick={() => setQuickOpen(o => !o)}
