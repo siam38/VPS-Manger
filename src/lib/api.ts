@@ -28,6 +28,63 @@ export function apiDelete<T = any>(path: string, body?: any) {
 }
 
 /**
+ * Fetch a file as an object URL for inline preview.
+ *
+ * Same reasoning as downloadFile: the token goes in the header, never the URL,
+ * so it cannot end up in access logs or a Referer. Callers must revoke the
+ * returned URL when the preview closes.
+ */
+export async function fetchBlobUrl(
+  path: string
+): Promise<{ url: string; type: string; size: number }> {
+  const res = await fetch(`${BASE}/api/files/download?path=${encodeURIComponent(path)}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body.error || res.statusText);
+  }
+  const blob = await res.blob();
+  return { url: URL.createObjectURL(blob), type: blob.type, size: blob.size };
+}
+
+/**
+ * Upload with real progress. `fetch` cannot report upload progress, so this
+ * uses XHR — the old implementation gave no feedback at all on a 100MB file.
+ */
+export function uploadFiles(
+  destPath: string,
+  files: File[],
+  onProgress?: (percent: number, loaded: number, total: number) => void
+): { promise: Promise<any>; abort: () => void } {
+  const xhr = new XMLHttpRequest();
+  const fd = new FormData();
+  fd.append('path', destPath);
+  files.forEach(f => fd.append('files', f));
+
+  const promise = new Promise<any>((resolve, reject) => {
+    xhr.upload.addEventListener('progress', e => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100), e.loaded, e.total);
+      }
+    });
+    xhr.addEventListener('load', () => {
+      let body: any = {};
+      try { body = JSON.parse(xhr.responseText); } catch {}
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+      else reject(new Error(body.error || `Upload failed (${xhr.status})`));
+    });
+    xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+    xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+    xhr.open('POST', `${BASE}/api/files/upload`);
+    xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
+    xhr.send(fd);
+  });
+
+  return { promise, abort: () => xhr.abort() };
+}
+
+/**
  * Download a file/dir via an authenticated request.
  *
  * The token is sent in the Authorization header and never placed in the URL,

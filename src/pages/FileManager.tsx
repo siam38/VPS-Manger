@@ -1,898 +1,977 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { apiGet, apiPost, apiDelete, downloadFile } from '../lib/api';
-import { getFileIcon, formatBytes, formatDate } from '../lib/utils';
+import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import {
-  ChevronRight, Home, Upload, FolderPlus, FilePlus, RefreshCw, Download,
-  Trash2, Edit2, Copy, Scissors, ClipboardPaste, Eye, EyeOff,
-  MoreVertical, X, Check, ArrowLeft, Search, Save, Code2, CheckSquare,
-  Maximize2, Minimize2, Zap, Clock, GitBranch, Code, FileText, Image as ImageIcon,
-  Music, Video, FileArchive, FileSpreadsheet, Terminal, Play, Pause
+  ArrowLeft, ArrowUpDown, ChevronRight, ClipboardPaste, Copy, Download, Edit2,
+  Eye, EyeOff, FilePlus, FolderPlus, Grid3x3, Home, List, MoreHorizontal,
+  RefreshCw, Scissors, Search, Trash2, Upload, X, Zap,
 } from 'lucide-react';
+import { apiGet, apiPost, apiDelete, downloadFile, uploadFiles } from '../lib/api';
+import { classifyFile, isEditable, KIND_LABEL } from '../lib/fileTypes';
+import { useToast } from '../lib/toast';
+import { FileRow, EmptyState, type FileItem } from '../components/files/FileRow';
 
-interface FileItem {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  size: number;
-  modified: string;
-  permissions: string;
-}
+// The editor pulls in CodeMirror and a grammar; the preview pulls in nothing
+// heavy but is still dead weight while you are only browsing. Both are split
+// out so opening a folder does not download an editor you may never use.
+const FileEditor = lazy(() => import('../components/FileEditor'));
+const FilePreview = lazy(() => import('../components/FilePreview'));
 
-const TEXT_EXTENSIONS = new Set([
-  'js','jsx','ts','tsx','mjs','cjs','py','rb','go','rs','java','c','cpp','h','hpp',
-  'cs','php','swift','kt','scala','r','lua','pl','sh','bash','zsh','fish','ps1',
-  'bat','cmd','html','htm','css','scss','sass','less','vue','svelte','json','yaml',
-  'yml','toml','xml','csv','tsv','sql','env','ini','cfg','conf','config','gitignore',
-  'dockerignore','editorconfig','eslintrc','prettierrc','babelrc','md','mdx','txt',
-  'log','rst','tex','makefile','dockerfile','rakefile','gemfile','graphql','prisma',
-  'nginx','service','timer','socket','rules','crt','pem','pub','key',
-]);
-
-const IMAGE_EXTENSIONS = new Set([
-  'jpg','jpeg','png','gif','webp','svg','bmp','ico','tiff','tif','avif',
-]);
-
-const AUDIO_EXTENSIONS = new Set([
-  'mp3','wav','ogg','flac','aac','m4a','wma','opus','aiff',
-]);
-
-const VIDEO_EXTENSIONS = new Set([
-  'mp4','webm','mov','avi','mkv','flv','wmv','m4v','3gp',
-]);
-
-const ARCHIVE_EXTENSIONS = new Set([
-  'zip','tar','gz','tgz','bz2','xz','7z','rar','iso','dmg',
-]);
-
-const DOCUMENT_EXTENSIONS = new Set([
-  'pdf','doc','docx','xls','xlsx','ppt','pptx','odt','ods','odp','rtf','epub',
-]);
-
-function isTextFile(name: string): boolean {
-  const lower = name.toLowerCase();
-  // Check exact names
-  const knownNames = ['dockerfile', 'makefile', 'rakefile', 'gemfile', '.gitignore', '.env', '.env.local', '.env.production', 'readme', 'license', 'changelog'];
-  if (knownNames.some(n => lower === n || lower.endsWith(`/${n}`))) return true;
-  const ext = lower.split('.').pop() || '';
-  return TEXT_EXTENSIONS.has(ext);
-}
-
-const EXT_LANG: Record<string, string> = {
-  js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
-  py: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
-  c: 'c', cpp: 'cpp', cs: 'csharp', php: 'php', swift: 'swift',
-  html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less',
-  json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml', xml: 'xml',
-  md: 'markdown', mdx: 'markdown', txt: 'plaintext', log: 'plaintext',
-  sh: 'shell', bash: 'shell', zsh: 'shell', dockerfile: 'dockerfile',
-  sql: 'sql', graphql: 'graphql', lua: 'lua', r: 'r',
-  env: 'plaintext', ini: 'ini', conf: 'plaintext',
-};
-
-function getLang(name: string): string {
-  const lower = name.toLowerCase();
-  if (EXT_LANG[lower]) return EXT_LANG[lower];
-  const ext = lower.split('.').pop() || '';
-  return EXT_LANG[ext] || 'plaintext';
-}
-
-function getFileType(name: string): 'image' | 'audio' | 'video' | 'archive' | 'document' | 'text' | 'other' {
-  const ext = name.toLowerCase().split('.').pop() || '';
-  if (IMAGE_EXTENSIONS.has(ext)) return 'image';
-  if (AUDIO_EXTENSIONS.has(ext)) return 'audio';
-  if (VIDEO_EXTENSIONS.has(ext)) return 'video';
-  if (ARCHIVE_EXTENSIONS.has(ext)) return 'archive';
-  if (DOCUMENT_EXTENSIONS.has(ext)) return 'document';
-  if (TEXT_EXTENSIONS.has(ext)) return 'text';
-  return 'other';
-}
-
-function getFileTypeInfo(type: string) {
-  switch (type) {
-    case 'image': return { icon: ImageIcon, color: 'text-pink-400', label: 'Image' };
-    case 'audio': return { icon: Music, color: 'text-purple-400', label: 'Audio' };
-    case 'video': return { icon: Video, color: 'text-red-400', label: 'Video' };
-    case 'archive': return { icon: FileArchive, color: 'text-yellow-400', label: 'Archive' };
-    case 'document': return { icon: FileSpreadsheet, color: 'text-blue-400', label: 'Document' };
-    case 'text': return { icon: FileText, color: 'text-green-400', label: 'Text' };
-    default: return { icon: FileText, color: 'text-muted', label: 'File' };
-  }
+function OverlayFallback() {
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-canvas">
+      <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 }
 
 const ALLOWED_BASES = ['/root', '/var/www', '/home', '/opt', '/tmp'];
+const OPENCLAW_PATH = '/home/ubuntu/.openclaw';
 
-function getAllowedBase(p: string): string {
+type SortKey = 'name' | 'size' | 'modified' | 'type';
+type SortDir = 'asc' | 'desc';
+type ViewMode = 'list' | 'grid';
+
+function baseOf(p: string) {
   return ALLOWED_BASES.find(b => p.startsWith(b)) || '/root';
 }
 
+function parentOf(p: string) {
+  const up = p.substring(0, p.lastIndexOf('/'));
+  return up || baseOf(p);
+}
+
 export default function FileManager() {
+  const toast = useToast();
+
   const [currentPath, setCurrentPath] = useState('/root');
   const [items, setItems] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showHidden, setShowHidden] = useState(() => localStorage.getItem('vps_show_hidden') === 'true');
-  useEffect(() => { localStorage.setItem('vps_show_hidden', String(showHidden)); }, [showHidden]);
-  const [openclawBackPath, setOpenclawBackPath] = useState('/home');
+  const [error, setError] = useState<string | null>(null);
+
+  const [showHidden, setShowHidden] = useState(
+    () => localStorage.getItem('vps_show_hidden') === 'true'
+  );
+  const [view, setView] = useState<ViewMode>(
+    () => (localStorage.getItem('vps_files_view') as ViewMode) || 'list'
+  );
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [clipboard, setClipboard] = useState<{ items: string[]; mode: 'copy' | 'cut' } | null>(null);
-  const [renaming, setRenaming] = useState<string | null>(null);
+
+  const [menu, setMenu] = useState<{ item: FileItem; x: number; y: number } | null>(null);
+  const [overflow, setOverflow] = useState(false);
+  const [creating, setCreating] = useState<'file' | 'folder' | null>(null);
+  const [createName, setCreateName] = useState('');
+  const [renaming, setRenaming] = useState<FileItem | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [newFolderMode, setNewFolderMode] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [newFileMode, setNewFileMode] = useState(false);
-  const [newFileName, setNewFileName] = useState('');
-  const [newFileType, setNewFileType] = useState('text');
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem } | null>(null);
+
+  const [editing, setEditing] = useState<FileItem | null>(null);
+  const [previewing, setPreviewing] = useState<FileItem | null>(null);
+
+  const [dragOver, setDragOver] = useState(false);
+  const [upload, setUpload] = useState<{ percent: number; label: string } | null>(null);
+
+  const [history, setHistory] = useState<string[]>([]);
   const uploadRef = useRef<HTMLInputElement>(null);
-  
-  // Editor state
-  const [editingFile, setEditingFile] = useState<{ path: string; name: string; content: string; language: string } | null>(null);
-  const [editorModified, setEditorModified] = useState(false);
-  const [editorSaving, setEditorSaving] = useState(false);
-  const [editorSaved, setEditorSaved] = useState(false);
-  const [monacoReady, setMonacoReady] = useState(false);
-  const [editorFullscreen, setEditorFullscreen] = useState(false);
-  const [editorLineNumbers, setEditorLineNumbers] = useState(true);
-  const [editorWordWrap, setEditorWordWrap] = useState(false);
-  const [editorMinimap, setEditorMinimap] = useState(true);
-  const [editorFontSize, setEditorFontSize] = useState(14);
-  const editorRef = useRef<any>(null);
-  const monacoRef = useRef<any>(null);
-  const editorContainerRef = useRef<HTMLDivElement>(null);
-  const longPressTimer = useRef<any>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const lastIndexRef = useRef<number | null>(null);
 
-  // Load Monaco lazily
-  useEffect(() => {
-    if ((window as any).require?.config) {
-      setMonacoReady(true);
-      return;
-    }
-    const existing = document.querySelector('script[src*="monaco-editor"]');
-    if (existing) {
-      const check = setInterval(() => {
-        if ((window as any).require) {
-          clearInterval(check);
-          const r = (window as any).require;
-          r.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs' } });
-          r(['vs/editor/editor.main'], () => setMonacoReady(true));
-        }
-      }, 100);
-      return () => clearInterval(check);
-    }
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js';
-    script.onload = () => {
-      const r = (window as any).require;
-      r.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs' } });
-      r(['vs/editor/editor.main'], (m: any) => {
-        monacoRef.current = m;
-        if (!m.editor.getModel(m.Uri.parse('foxclaw-dark-check'))) {
-          m.editor.defineTheme('foxclaw-dark', {
-            base: 'vs-dark', inherit: true,
-            rules: [
-              { token: 'comment', foreground: '475569', fontStyle: 'italic' },
-              { token: 'keyword', foreground: 'c084fc' },
-              { token: 'string', foreground: '4ade80' },
-              { token: 'number', foreground: 'fbbf24' },
-              { token: 'type', foreground: '60a5fa' },
-            ],
-            colors: {
-              'editor.background': '#060e0d',
-              'editor.foreground': '#d6e7e5',
-              'editor.lineHighlightBackground': '#1a2b2a40',
-              'editor.selectionBackground': '#14b8a633',
-              'editorCursor.foreground': '#14b8a6',
-              'editorLineNumber.foreground': '#2a3f3d',
-              'editorLineNumber.activeForeground': '#82a8a4',
-            }
-          });
-        }
-        setMonacoReady(true);
-      });
-    };
-    document.head.appendChild(script);
-  }, []);
+  useEffect(() => { localStorage.setItem('vps_show_hidden', String(showHidden)); }, [showHidden]);
+  useEffect(() => { localStorage.setItem('vps_files_view', view); }, [view]);
 
-  // Create editor when editing file
-  useEffect(() => {
-    if (!editingFile || !monacoReady || !editorContainerRef.current) return;
-    
-    const monaco = monacoRef.current || (window as any).monaco;
-    if (!monaco) return;
-    monacoRef.current = monaco;
-
-    // Cleanup previous
-    if (editorRef.current) {
-      editorRef.current.dispose();
-      editorRef.current = null;
-    }
-
-    const uri = monaco.Uri.file(editingFile.path);
-    let model = monaco.editor.getModel(uri);
-    if (model) model.dispose();
-    model = monaco.editor.createModel(editingFile.content, editingFile.language, uri);
-
-    const isMobile = window.innerWidth < 768;
-    const editor = monaco.editor.create(editorContainerRef.current, {
-      model,
-      theme: 'foxclaw-dark',
-      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-      fontSize: isMobile ? 12 : 13,
-      lineHeight: isMobile ? 18 : 20,
-      minimap: { enabled: false },
-      scrollBeyondLastLine: false,
-      automaticLayout: true,
-      padding: { top: 8 },
-      smoothScrolling: true,
-      cursorBlinking: 'smooth',
-      wordWrap: isMobile ? 'on' : 'off',
-      lineNumbers: isMobile ? 'off' : 'on',
-      folding: !isMobile,
-      glyphMargin: false,
-      lineDecorationsWidth: isMobile ? 4 : 10,
-      lineNumbersMinChars: isMobile ? 2 : 3,
-    });
-
-    editor.onDidChangeModelContent(() => {
-      setEditorModified(true);
-      if (editingFile) {
-        editingFile.content = editor.getValue();
-      }
-    });
-
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      saveEditorFile();
-    });
-
-    editorRef.current = editor;
-
-    return () => {
-      if (editorRef.current) {
-        editorRef.current.dispose();
-        editorRef.current = null;
-      }
-      if (model) model.dispose();
-    };
-  }, [editingFile, monacoReady]);
-
-  const openFileInEditor = async (item: FileItem) => {
-    try {
-      const fileType = getFileType(item.name);
-      
-      // For non-text files, show appropriate message
-      if (fileType === 'image') {
-        alert(`Image file: ${item.name}\n\nPreview functionality coming soon.\n\nYou can download this file to view it.`);
-        return;
-      }
-      
-      if (fileType === 'video' || fileType === 'audio') {
-        alert(`Media file: ${item.name}\n\nMedia player coming soon.\n\nYou can download this file to play it.`);
-        return;
-      }
-      
-      if (fileType === 'document') {
-        alert(`Document: ${item.name}\n\nDocument viewer coming soon.\n\nYou can download this file to view it.`);
-        return;
-      }
-      
-      if (fileType === 'archive') {
-        alert(`Archive: ${item.name}\n\nArchive extraction coming soon.\n\nYou can download this file to extract it.`);
-        return;
-      }
-      
-      if (!isTextFile(item.name)) {
-        alert(`This file type cannot be edited in the browser.\n\nFile: ${item.name}`);
-        return;
-      }
-      
-      const data = await apiGet<{ content: string }>(`/api/files/content?path=${encodeURIComponent(item.path)}`);
-      setEditingFile({ path: item.path, name: item.name, content: data.content, language: getLang(item.name) });
-      setEditorModified(false);
-      setEditorSaved(false);
-    } catch (e: any) {
-      alert(e.message || 'Cannot open this file');
-    }
-  };
-
-  const saveEditorFile = async () => {
-    if (!editingFile || !editorRef.current) return;
-    setEditorSaving(true);
-    try {
-      const content = editorRef.current.getValue();
-      await apiPost('/api/files/save', { path: editingFile.path, content });
-      setEditingFile({ ...editingFile, content });
-      setEditorModified(false);
-      setEditorSaved(true);
-      setTimeout(() => setEditorSaved(false), 2000);
-    } catch (e: any) {
-      alert(e.message);
-    }
-    setEditorSaving(false);
-  };
-
-  const closeEditor = () => {
-    if (editorModified && !confirm('You have unsaved changes. Are you sure you want to close?')) {
-      return;
-    }
-    setEditingFile(null);
-    setEditorModified(false);
-    setEditorFullscreen(false);
-  };
-
-  const updateEditorOption = (option: string, value: any) => {
-    if (editorRef.current) {
-      editorRef.current.updateOptions({ [option]: value });
-    }
-  };
-
-  const toggleFullscreen = () => {
-    setEditorFullscreen(!editorFullscreen);
-  };
-
-  const increaseFontSize = () => {
-    const newSize = editorFontSize + 2;
-    setEditorFontSize(newSize);
-    updateEditorOption('fontSize', newSize);
-  };
-
-  const decreaseFontSize = () => {
-    const newSize = Math.max(10, editorFontSize - 2);
-    setEditorFontSize(newSize);
-    updateEditorOption('fontSize', newSize);
-  };
-
-  const load = async (p?: string) => {
-    const target = p ?? currentPath;
+  // ── Load ──────────────────────────────────────────────────────────
+  const load = useCallback(async (target?: string) => {
+    const p = target ?? currentPath;
     setLoading(true);
+    setError(null);
     try {
-      const data = await apiGet(`/api/files/list?path=${encodeURIComponent(target)}&hidden=${showHidden}`);
+      const data = await apiGet<{ path: string; items: FileItem[] }>(
+        `/api/files/list?path=${encodeURIComponent(p)}&hidden=${showHidden}`
+      );
       setItems(data.items);
       setCurrentPath(data.path);
       setSelected(new Set());
+      lastIndexRef.current = null;
     } catch (e: any) {
-      alert(e.message);
+      setError(e.message || 'Could not read this folder');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  }, [currentPath, showHidden]);
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [showHidden]);
+
+  const navigate = useCallback((p: string) => {
+    setHistory(h => [...h, currentPath].slice(-50));
+    setSearch('');
+    load(p);
+  }, [currentPath, load]);
+
+  const goBack = useCallback(() => {
+    setHistory(h => {
+      if (!h.length) { load(parentOf(currentPath)); return h; }
+      const prev = h[h.length - 1];
+      load(prev);
+      return h.slice(0, -1);
+    });
+  }, [currentPath, load]);
+
+  // ── Sorting + filtering ───────────────────────────────────────────
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const filtered = term
+      ? items.filter(i => i.name.toLowerCase().includes(term))
+      : items;
+
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      // Folders always lead, regardless of sort column.
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+      switch (sortKey) {
+        case 'size': return (a.size - b.size) * dir;
+        case 'modified':
+          return (new Date(a.modified).getTime() - new Date(b.modified).getTime()) * dir;
+        case 'type': {
+          const at = a.isDirectory ? 'folder' : classifyFile(a.name);
+          const bt = b.isDirectory ? 'folder' : classifyFile(b.name);
+          return at === bt ? a.name.localeCompare(b.name) : at.localeCompare(bt) * dir;
+        }
+        default:
+          return a.name.localeCompare(b.name, undefined, { numeric: true }) * dir;
+      }
+    });
+  }, [items, search, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
   };
 
-  useEffect(() => { load(); }, [showHidden]);
+  // ── Selection ─────────────────────────────────────────────────────
+  const toggleSelect = useCallback((item: FileItem, e: any) => {
+    const index = visible.findIndex(i => i.path === item.path);
+    setSelected(prev => {
+      const next = new Set(prev);
+      // Shift-click selects the range, like every real file manager.
+      if (e?.shiftKey && lastIndexRef.current !== null) {
+        const [from, to] = [lastIndexRef.current, index].sort((a, b) => a - b);
+        for (let i = from; i <= to; i++) next.add(visible[i].path);
+      } else if (next.has(item.path)) {
+        next.delete(item.path);
+      } else {
+        next.add(item.path);
+      }
+      return next;
+    });
+    lastIndexRef.current = index;
+  }, [visible]);
 
-  const navigate = (p: string) => { load(p); };
+  const allSelected = visible.length > 0 && visible.every(i => selected.has(i.path));
 
-  const pathParts = currentPath.split('/').filter(Boolean);
+  // ── Open ──────────────────────────────────────────────────────────
+  const open = useCallback((item: FileItem) => {
+    if (item.isDirectory) { navigate(item.path); return; }
+    if (isEditable(item.name)) { setEditing(item); return; }
+    setPreviewing(item);
+  }, [navigate]);
 
-  const filteredItems = search
-    ? items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
-    : items;
+  // ── Mutations ─────────────────────────────────────────────────────
+  const remove = useCallback(async (paths: string[]) => {
+    const many = paths.length > 1;
+    const label = many ? `${paths.length} items` : paths[0].split('/').pop();
+    const ok = await toast.confirm({
+      title: many ? `Delete ${paths.length} items?` : `Delete ${label}?`,
+      description: 'This removes them from disk immediately. There is no recycle bin.',
+      confirmLabel: 'Delete',
+      danger: true,
+      requireText: paths.length > 3 ? 'delete' : undefined,
+    });
+    if (!ok) return;
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length) return;
-    const fd = new FormData();
-    fd.append('path', currentPath);
-    for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
-    try {
-      const token = localStorage.getItem('vps_token') || '';
-      await fetch('/api/files/upload', {
-        method: 'POST', body: fd,
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      load();
-    } catch (e: any) { alert(e.message); }
-    e.target.value = '';
-  };
-
-  const handleDelete = async (paths: string[]) => {
-    if (!confirm(`Delete ${paths.length} item(s)?`)) return;
+    const id = toast.loading({ title: `Deleting ${label}…` });
+    const failed: string[] = [];
     for (const p of paths) {
-      try { await apiDelete('/api/files/delete', { path: p }); } catch {}
+      try { await apiDelete('/api/files/delete', { path: p }); }
+      catch { failed.push(p.split('/').pop() || p); }
+    }
+    if (failed.length) {
+      toast.update(id, 'error', {
+        title: `Failed to delete ${failed.length} item(s)`,
+        description: failed.slice(0, 4).join(', '),
+      });
+    } else {
+      toast.update(id, 'success', { title: `Deleted ${label}`, duration: 2500 });
     }
     load();
-  };
+  }, [toast, load]);
 
-  const handleRename = async (oldPath: string) => {
-    if (!renameValue.trim()) { setRenaming(null); return; }
-    const dir = oldPath.substring(0, oldPath.lastIndexOf('/'));
+  const create = useCallback(async () => {
+    const name = createName.trim();
+    if (!name) { setCreating(null); return; }
+    if (name.includes('/')) {
+      toast.error({ title: 'Invalid name', description: 'Names cannot contain "/".' });
+      return;
+    }
+    if (items.some(i => i.name === name)) {
+      toast.error({ title: 'Already exists', description: `"${name}" is already in this folder.` });
+      return;
+    }
     try {
-      await apiPost('/api/files/rename', { oldPath, newPath: `${dir}/${renameValue}` });
-      load();
-    } catch (e: any) { alert(e.message); }
-    setRenaming(null);
-  };
-
-  const handleNewFolder = async () => {
-    if (!newFolderName.trim()) { setNewFolderMode(false); return; }
-    try {
-      await apiPost('/api/files/mkdir', { path: currentPath, name: newFolderName });
-      load();
-    } catch (e: any) { alert(e.message); }
-    setNewFolderMode(false);
-    setNewFolderName('');
-  };
-
-  const handleNewFile = async () => {
-    if (!newFileName.trim()) { setNewFileMode(false); return; }
-    try {
-      // Add extension based on type if not present
-      let fileName = newFileName;
-      if (newFileType === 'text' && !fileName.includes('.')) {
-        fileName += '.txt';
-      } else if (newFileType === 'html' && !fileName.includes('.')) {
-        fileName += '.html';
-      } else if (newFileType === 'css' && !fileName.includes('.')) {
-        fileName += '.css';
-      } else if (newFileType === 'js' && !fileName.includes('.')) {
-        fileName += '.js';
-      } else if (newFileType === 'json' && !fileName.includes('.')) {
-        fileName += '.json';
-      } else if (newFileType === 'md' && !fileName.includes('.')) {
-        fileName += '.md';
+      if (creating === 'folder') {
+        await apiPost('/api/files/mkdir', { path: currentPath, name });
+        toast.success({ title: 'Folder created', description: name, duration: 2000 });
+      } else {
+        await apiPost('/api/files/save', { path: `${currentPath}/${name}`, content: '' });
+        toast.success({ title: 'File created', description: name, duration: 2000 });
       }
-      
-      const filePath = `${currentPath}/${fileName}`;
-      await apiPost('/api/files/save', { path: filePath, content: '' });
+      setCreating(null);
+      setCreateName('');
       load();
-    } catch (e: any) { alert(e.message); }
-    setNewFileMode(false);
-    setNewFileName('');
-    setNewFileType('text');
-  };
+    } catch (e: any) {
+      toast.error({ title: 'Could not create', description: e.message });
+    }
+  }, [createName, creating, currentPath, items, toast, load]);
 
-  const handlePaste = async () => {
+  const rename = useCallback(async () => {
+    if (!renaming) return;
+    const name = renameValue.trim();
+    if (!name || name === renaming.name) { setRenaming(null); return; }
+    try {
+      const dir = renaming.path.substring(0, renaming.path.lastIndexOf('/'));
+      await apiPost('/api/files/rename', { oldPath: renaming.path, newPath: `${dir}/${name}` });
+      toast.success({ title: 'Renamed', description: `${renaming.name} → ${name}`, duration: 2500 });
+      setRenaming(null);
+      load();
+    } catch (e: any) {
+      toast.error({ title: 'Rename failed', description: e.message });
+    }
+  }, [renaming, renameValue, toast, load]);
+
+  const paste = useCallback(async () => {
     if (!clipboard) return;
+    const id = toast.loading({
+      title: `${clipboard.mode === 'copy' ? 'Copying' : 'Moving'} ${clipboard.items.length} item(s)…`,
+    });
+    const failed: string[] = [];
     for (const src of clipboard.items) {
       const name = src.split('/').pop();
       const dest = `${currentPath}/${name}`;
+      if (src === dest) continue;
       try {
         if (clipboard.mode === 'copy') {
           await apiPost('/api/files/copy', { sourcePath: src, destPath: dest });
         } else {
           await apiPost('/api/files/rename', { oldPath: src, newPath: dest });
         }
-      } catch {}
+      } catch { failed.push(name || src); }
     }
-    setClipboard(null);
+    if (failed.length) {
+      toast.update(id, 'error', {
+        title: `${failed.length} item(s) failed`,
+        description: failed.slice(0, 4).join(', '),
+      });
+    } else {
+      toast.update(id, 'success', { title: 'Done', duration: 2000 });
+    }
+    if (clipboard.mode === 'cut') setClipboard(null);
     load();
-  };
+  }, [clipboard, currentPath, toast, load]);
 
-  const handleContextMenu = (e: React.MouseEvent, item: FileItem) => {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, item });
-  };
-
-  // Mobile long-press handlers
-  const handleTouchStart = (item: FileItem) => {
-    longPressTimer.current = setTimeout(() => {
-      if (!item.isDirectory && isTextFile(item.name)) {
-        openFileInEditor(item);
-      }
-    }, 600);
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+  const doUpload = useCallback(async (files: File[]) => {
+    if (!files.length) return;
+    const label = files.length === 1 ? files[0].name : `${files.length} files`;
+    setUpload({ percent: 0, label });
+    const { promise } = uploadFiles(currentPath, files, p => {
+      setUpload({ percent: p, label });
+    });
+    try {
+      await promise;
+      toast.success({ title: 'Uploaded', description: label, duration: 2500 });
+      load();
+    } catch (e: any) {
+      toast.error({ title: 'Upload failed', description: e.message });
+    } finally {
+      setUpload(null);
     }
-  };
+  }, [currentPath, toast, load]);
+
+  const download = useCallback((item: FileItem) => {
+    const id = toast.loading({
+      title: `Preparing ${item.name}${item.isDirectory ? ' (zip)' : ''}…`,
+    });
+    downloadFile(item.path)
+      .then(() => toast.update(id, 'success', { title: `Downloaded ${item.name}`, duration: 2500 }))
+      .catch(e => toast.update(id, 'error', { title: 'Download failed', description: e.message }));
+  }, [toast]);
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (editing || previewing) return;
+      const el = e.target as HTMLElement;
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName || '');
+
+      if (e.key === '/' && !typing) { e.preventDefault(); searchRef.current?.focus(); return; }
+      if (e.key === 'Escape') {
+        if (search) setSearch('');
+        else if (selected.size) setSelected(new Set());
+        return;
+      }
+      if (typing) return;
+
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key === 'a') {
+        e.preventDefault();
+        setSelected(new Set(visible.map(i => i.path)));
+      } else if (mod && e.key === 'c' && selected.size) {
+        setClipboard({ items: [...selected], mode: 'copy' });
+        toast.info({ title: `Copied ${selected.size} item(s)`, duration: 1800 });
+      } else if (mod && e.key === 'x' && selected.size) {
+        setClipboard({ items: [...selected], mode: 'cut' });
+        toast.info({ title: `Cut ${selected.size} item(s)`, duration: 1800 });
+      } else if (mod && e.key === 'v' && clipboard) {
+        paste();
+      } else if (e.key === 'Delete' && selected.size) {
+        remove([...selected]);
+      } else if (e.key === 'Backspace') {
+        goBack();
+      } else if (e.key === 'F5' || (mod && e.key === 'r')) {
+        e.preventDefault(); load();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing, previewing, search, selected, visible, clipboard, paste, remove, goBack, load, toast]);
+
+  const inOpenclaw = currentPath.startsWith(OPENCLAW_PATH);
+  const parts = currentPath.split('/').filter(Boolean);
 
   return (
-    <div className="h-full flex flex-col animate-fade-in" onClick={() => setContextMenu(null)}>
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 p-3 border-b border-line bg-surface/30 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:gap-1 max-sm:p-2">
-        <button onClick={() => navigate(currentPath.substring(0, currentPath.lastIndexOf('/')) || getAllowedBase(currentPath))}
-          className="p-1.5 rounded-lg hover:bg-raised text-muted hover:text-white transition">
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-0.5 text-xs overflow-x-auto flex-1 min-w-0">
-          <button onClick={() => navigate(getAllowedBase(currentPath))} className="text-muted hover:text-white transition p-1 rounded">
-            <Home className="w-3.5 h-3.5" />
+    <div
+      className="flex flex-col min-h-0 h-full max-lg:h-[calc(100dvh-3.5rem)]"
+      onClick={() => { setMenu(null); setOverflow(false); }}
+      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={e => {
+        if (e.currentTarget === e.target) setDragOver(false);
+      }}
+      onDrop={e => {
+        e.preventDefault();
+        setDragOver(false);
+        doUpload(Array.from(e.dataTransfer.files));
+      }}
+    >
+      {/* ── Toolbar ─────────────────────────────────────────────── */}
+      <div className="shrink-0 border-b border-line bg-surface/40">
+        {/* Row 1: navigation + search */}
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 h-12">
+          <button className="btn-icon !w-8 !h-8 max-md:!w-10 max-md:!h-10" onClick={goBack} aria-label="Go back">
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           </button>
-          {pathParts.map((part, i) => (
-            <React.Fragment key={i}>
-              <ChevronRight className="w-3 h-3 text-muted flex-shrink-0" />
+          <button
+            className="btn-icon !w-8 !h-8 max-md:!w-10 max-md:!h-10"
+            onClick={() => navigate(baseOf(currentPath))}
+            aria-label="Go to base folder"
+          >
+            <Home className="w-4 h-4" aria-hidden="true" />
+          </button>
+
+          {/* Breadcrumb — the single source of location truth. The old page
+              had three competing path indicators.
+              Note: no dir="rtl" scroll trick here. It kept long paths
+              end-visible but shoved short ones to the far right, where
+              "root" read as a username rather than the current folder. */}
+          <nav
+            aria-label="Breadcrumb"
+            className="flex-1 min-w-0 flex items-center gap-0.5 overflow-x-auto scrollbar-none"
+          >
+            <span className="flex items-center gap-0.5">
+              {/* Explicit filesystem root, so a one-segment path like /root
+                  reads as a path and not as a bare word (or a username). */}
               <button
-                onClick={() => navigate('/' + pathParts.slice(0, i + 1).join('/'))}
-                className="text-muted hover:text-white transition truncate max-w-[120px] px-1 rounded"
+                onClick={() => navigate('/')}
+                aria-label="Filesystem root"
+                className="px-1.5 h-8 rounded-control text-body text-muted font-mono
+                           hover:text-ink hover:bg-raised transition-colors shrink-0"
               >
-                {part}
+                /
               </button>
-            </React.Fragment>
-          ))}
+              {parts.map((part, i) => {
+                const target = '/' + parts.slice(0, i + 1).join('/');
+                const last = i === parts.length - 1;
+                return (
+                  <React.Fragment key={target}>
+                    {i > 0 && <ChevronRight className="w-3 h-3 text-subtle shrink-0" aria-hidden="true" />}
+                    <button
+                      onClick={() => !last && navigate(target)}
+                      disabled={last}
+                      aria-current={last ? 'page' : undefined}
+                      className={`px-1.5 h-8 rounded-control whitespace-nowrap transition-colors
+                                  ${last
+                                    ? 'text-body text-ink font-semibold cursor-default'
+                                    : 'text-meta text-muted underline decoration-line-strong decoration-dotted underline-offset-4 hover:text-accent hover:decoration-accent hover:bg-raised'}`}
+                    >
+                      {part}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </span>
+          </nav>
+
+          <div className="relative hidden sm:block">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" aria-hidden="true" />
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Filter…  /"
+              aria-label="Filter files in this folder"
+              className="field !h-8 !w-44 lg:!w-56 !pl-8 !pr-7"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                aria-label="Clear filter"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+              >
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+
+          <button
+            className="btn-icon !w-8 !h-8 max-md:!w-10 max-md:!h-10"
+            onClick={() => load()}
+            aria-label="Refresh folder"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+          </button>
         </div>
 
-        <div className="flex items-center gap-1">
-          <select
-            value={getAllowedBase(currentPath)}
-            onChange={e => navigate(e.target.value)}
-            className="bg-canvas border border-line rounded-lg text-xs max-sm:text-[10px] text-white px-2 max-sm:px-1 py-1.5 max-sm:py-1 focus:outline-none focus:border-accent"
-            title="Jump to base directory"
-          >
-            {ALLOWED_BASES.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
+        {/* Row 2: actions.
+         *
+         * Desktop keeps one chip treatment across the whole row. Mobile shows
+         * only New / Upload and folds the six secondary toggles into an
+         * overflow sheet — six unlabelled icons in a row was unreadable, and
+         * the targets were under the 44px floor.
+         */}
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 h-12 sm:h-11 border-t border-line/60">
           <button
-            onClick={() => {
-              if (currentPath.startsWith('/home/ubuntu/.openclaw')) {
-                navigate(openclawBackPath);
-              } else {
-                setOpenclawBackPath(currentPath);
-                setShowHidden(true);
-                navigate('/home/ubuntu/.openclaw');
-              }
-            }}
-            className={`hidden md:inline-flex px-2 py-1.5 rounded-lg transition text-xs font-medium items-center gap-1.5 ${currentPath.startsWith('/home/ubuntu/.openclaw') ? 'bg-accent text-canvas hover:bg-accent/90' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
-            title={currentPath.startsWith('/home/ubuntu/.openclaw') ? 'Back to previous folder' : 'Open OpenClaw Workspace'}
+            className="btn btn-quiet btn-sm shrink-0 max-sm:!h-11 max-sm:!px-3"
+            onClick={() => { setCreating('folder'); setCreateName(''); }}
           >
-            OpenClaw
+            <FolderPlus className="w-4 h-4" aria-hidden="true" />
+            <span className="hidden sm:inline">New folder</span>
+            <span className="sm:hidden">New</span>
           </button>
           <button
-            onClick={() => {
-              if (currentPath.startsWith('/home/ubuntu/.openclaw')) {
-                navigate(openclawBackPath);
-              } else {
-                setOpenclawBackPath(currentPath);
-                setShowHidden(true);
-                navigate('/home/ubuntu/.openclaw');
-              }
-            }}
-            className={`md:hidden p-1.5 rounded-lg transition ${currentPath.startsWith('/home/ubuntu/.openclaw') ? 'bg-accent text-canvas hover:bg-accent/90' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
-            title={currentPath.startsWith('/home/ubuntu/.openclaw') ? 'Back' : 'OpenClaw'}
+            className="btn btn-quiet btn-sm shrink-0 hidden sm:inline-flex"
+            onClick={() => { setCreating('file'); setCreateName(''); }}
           >
-            <Zap className="w-4 h-4" />
+            <FilePlus className="w-4 h-4" aria-hidden="true" />
+            <span>New file</span>
           </button>
+          <button
+            className="btn btn-quiet btn-sm shrink-0 max-sm:!h-11 max-sm:!px-3"
+            onClick={() => uploadRef.current?.click()}
+          >
+            <Upload className="w-4 h-4" aria-hidden="true" />
+            <span>Upload</span>
+          </button>
+
+          {clipboard && (
+            <button
+              className="btn btn-primary btn-sm shrink-0 max-sm:!h-11"
+              onClick={paste}
+            >
+              <ClipboardPaste className="w-4 h-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Paste ({clipboard.items.length})</span>
+              <span className="sm:hidden">{clipboard.items.length}</span>
+            </button>
+          )}
+
+          {/* Secondary controls: inline on desktop, overflow sheet on mobile */}
+          <span className="hidden sm:flex items-center gap-1">
+            <span className="w-px h-5 bg-line mx-1" aria-hidden="true" />
+            <button
+              className={`btn btn-quiet btn-sm ${showHidden ? '!text-accent !border-accent/40' : ''}`}
+              onClick={() => setShowHidden(h => !h)}
+              aria-pressed={showHidden}
+            >
+              {showHidden ? <Eye className="w-4 h-4" aria-hidden="true" /> : <EyeOff className="w-4 h-4" aria-hidden="true" />}
+              <span className="hidden lg:inline">Hidden: {showHidden ? 'on' : 'off'}</span>
+            </button>
+            <button
+              className="btn btn-quiet btn-sm"
+              onClick={() => setView(v => (v === 'list' ? 'grid' : 'list'))}
+            >
+              {view === 'list' ? <Grid3x3 className="w-4 h-4" aria-hidden="true" /> : <List className="w-4 h-4" aria-hidden="true" />}
+              <span className="hidden lg:inline">View: {view}</span>
+            </button>
+            <button
+              className="btn btn-quiet btn-sm"
+              onClick={() => toggleSort(sortKey === 'name' ? 'modified' : 'name')}
+              title={`Sorted by ${sortKey} (${sortDir})`}
+            >
+              <ArrowUpDown className="w-4 h-4" aria-hidden="true" />
+              <span className="hidden lg:inline">Sort: {sortKey}</span>
+            </button>
+            <button
+              className={`btn btn-sm ${inOpenclaw ? 'btn-primary' : 'btn-quiet'}`}
+              title="Jump to the OpenClaw agent workspace"
+              onClick={() => {
+                if (inOpenclaw) navigate('/home');
+                else { setShowHidden(true); navigate(OPENCLAW_PATH); }
+              }}
+            >
+              <Zap className="w-4 h-4" aria-hidden="true" />
+              <span className="hidden lg:inline">OpenClaw</span>
+            </button>
+          </span>
+
+          <div className="ml-auto flex items-center gap-1.5 shrink-0">
+            {selected.size > 0 && (
+              <>
+                <span className="text-meta text-muted hidden md:inline">
+                  {selected.size} selected
+                </span>
+                <button
+                  className="btn btn-quiet btn-sm max-sm:!h-11"
+                  onClick={() => setClipboard({ items: [...selected], mode: 'copy' })}
+                  aria-label="Copy selected"
+                >
+                  <Copy className="w-4 h-4" aria-hidden="true" />
+                </button>
+                <button
+                  className="btn btn-quiet btn-sm max-sm:!h-11"
+                  onClick={() => setClipboard({ items: [...selected], mode: 'cut' })}
+                  aria-label="Cut selected"
+                >
+                  <Scissors className="w-4 h-4" aria-hidden="true" />
+                </button>
+                <button
+                  className="btn btn-danger btn-sm max-sm:!h-11"
+                  onClick={() => remove([...selected])}
+                >
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
+              </>
+            )}
+
+            {/* Mobile overflow */}
+            <div className="sm:hidden relative">
+              <button
+                className="btn btn-quiet btn-sm !h-11 !px-3"
+                onClick={e => { e.stopPropagation(); setOverflow(o => !o); }}
+                aria-label="More options"
+                aria-expanded={overflow}
+              >
+                <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
+              </button>
+
+              {overflow && (
+                <div
+                  className="absolute right-0 top-12 z-40 w-56 card shadow-2xl py-1 animate-slide-up"
+                  onClick={e => e.stopPropagation()}
+                  role="menu"
+                >
+                  <SheetItem
+                    icon={FilePlus}
+                    label="New file"
+                    onClick={() => { setCreating('file'); setCreateName(''); setOverflow(false); }}
+                  />
+                  <SheetItem
+                    icon={showHidden ? Eye : EyeOff}
+                    label={showHidden ? 'Hide hidden files' : 'Show hidden files'}
+                    onClick={() => { setShowHidden(h => !h); setOverflow(false); }}
+                  />
+                  <SheetItem
+                    icon={view === 'list' ? Grid3x3 : List}
+                    label={view === 'list' ? 'Grid view' : 'List view'}
+                    onClick={() => { setView(v => (v === 'list' ? 'grid' : 'list')); setOverflow(false); }}
+                  />
+                  <SheetItem
+                    icon={ArrowUpDown}
+                    label={`Sort: ${sortKey} (${sortDir})`}
+                    onClick={() => { toggleSort(sortKey === 'name' ? 'modified' : 'name'); setOverflow(false); }}
+                  />
+                  <div className="border-t border-line my-1" />
+                  <SheetItem
+                    icon={Zap}
+                    label={inOpenclaw ? 'Leave OpenClaw' : 'OpenClaw workspace'}
+                    onClick={() => {
+                      if (inOpenclaw) navigate('/home');
+                      else { setShowHidden(true); navigate(OPENCLAW_PATH); }
+                      setOverflow(false);
+                    }}
+                  />
+                  <div className="px-3 py-2">
+                    <label htmlFor="base-jump" className="eyebrow block mb-1.5">Jump to</label>
+                    <select
+                      id="base-jump"
+                      value={baseOf(currentPath)}
+                      onChange={e => { navigate(e.target.value); setOverflow(false); }}
+                      className="field !h-10"
+                    >
+                      {ALLOWED_BASES.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile filter */}
+        <div className="sm:hidden px-2 pb-2">
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-subtle" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" aria-hidden="true" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search..."
-              className="w-24 sm:w-32 md:w-40 pl-7 pr-2 py-1.5 bg-canvas border border-line rounded-lg text-xs text-white focus:outline-none focus:border-accent"
+              placeholder="Filter this folder…"
+              aria-label="Filter files in this folder"
+              className="field !h-11 !pl-8"
             />
           </div>
-          <button onClick={() => setShowHidden(!showHidden)}
-            className={`p-1.5 rounded-lg transition ${showHidden ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-raised'}`}
-            title="Toggle hidden files">
-            {showHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          </button>
-          <button onClick={() => { setNewFolderMode(true); setNewFolderName(''); }}
-            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="New folder">
-            <FolderPlus className="w-4 h-4" />
-          </button>
-          <button onClick={() => { setNewFileMode(true); setNewFileName(''); setNewFileType('text'); }}
-            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="New file">
-            <FilePlus className="w-4 h-4" />
-          </button>
-          <button onClick={() => uploadRef.current?.click()}
-            className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Upload">
-            <Upload className="w-4 h-4" />
-          </button>
-          {/* Select All / Deselect All */}
-          <button onClick={() => {
-            if (selected.size > 0) {
-              setSelected(new Set());
-            } else {
-              setSelected(new Set(filteredItems.map(i => i.path)));
+        </div>
+
+        {/* Inline create */}
+        {creating && (
+          <div className="flex items-center gap-2 px-3 py-2 border-t border-line bg-raised">
+            {creating === 'folder'
+              ? <FolderPlus className="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
+              : <FilePlus className="w-4 h-4 text-accent shrink-0" aria-hidden="true" />}
+            <input
+              autoFocus
+              value={createName}
+              onChange={e => setCreateName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') create();
+                if (e.key === 'Escape') { setCreating(null); setCreateName(''); }
+              }}
+              placeholder={creating === 'folder' ? 'Folder name' : 'File name, e.g. notes.md'}
+              aria-label={creating === 'folder' ? 'New folder name' : 'New file name'}
+              className="field flex-1"
+            />
+            <button className="btn btn-primary btn-sm" onClick={create}>Create</button>
+            <button className="btn btn-quiet btn-sm" onClick={() => { setCreating(null); setCreateName(''); }}>
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Upload progress */}
+        {upload && (
+          <div className="px-3 py-2 border-t border-line bg-raised">
+            <div className="flex items-center justify-between text-meta text-muted mb-1.5">
+              <span className="truncate">Uploading {upload.label}</span>
+              <span className="tabular">{upload.percent}%</span>
+            </div>
+            <div className="h-1 rounded-full bg-line overflow-hidden">
+              <div
+                className="h-full bg-accent transition-[width] duration-150"
+                style={{ width: `${upload.percent}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Column headers (list view, desktop) ─────────────────── */}
+      {view === 'list' && visible.length > 0 && (
+        <div className="hidden sm:grid shrink-0 grid-cols-[28px_1fr_auto_auto_36px] items-center gap-2
+                        px-3 h-8 border-b border-line bg-surface/60 text-label text-muted">
+          <span
+            role="checkbox"
+            aria-checked={allSelected}
+            tabIndex={0}
+            onClick={() =>
+              setSelected(allSelected ? new Set() : new Set(visible.map(i => i.path)))
             }
-          }}
-            className={`p-1.5 rounded-lg transition ${selected.size > 0 ? 'bg-accent/10 text-accent' : 'text-muted hover:text-white hover:bg-raised'}`}
-            title={selected.size > 0 ? 'Deselect All' : 'Select All'}>
-            <CheckSquare className="w-4 h-4" />
-          </button>
-          {clipboard && (
-            <button onClick={handlePaste}
-              className="p-1.5 rounded-lg text-accent hover:bg-accent/10 transition" title="Paste">
-              <ClipboardPaste className="w-4 h-4" />
-            </button>
-          )}
-          {selected.size > 0 && (
-            <button onClick={() => handleDelete(Array.from(selected))}
-              className="p-1.5 rounded-lg text-red-400 hover:bg-red-400/10 transition" title="Delete selected">
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-          <button onClick={() => load()} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+            className={`w-4 h-4 mx-auto rounded border cursor-pointer flex items-center justify-center
+                        ${allSelected ? 'bg-accent border-accent' : 'border-line-strong'}`}
+          >
+            {allSelected && <span className="text-canvas text-[10px] leading-none">✓</span>}
+          </span>
+          <SortHeader label="Name" active={sortKey === 'name'} dir={sortDir} onClick={() => toggleSort('name')} />
+          <SortHeader label="Size" align="right" width="w-20" active={sortKey === 'size'} dir={sortDir} onClick={() => toggleSort('size')} />
+          <span className="hidden lg:block w-28 text-right">
+            <SortHeader label="Modified" align="right" active={sortKey === 'modified'} dir={sortDir} onClick={() => toggleSort('modified')} />
+          </span>
+          <span />
         </div>
-        <input ref={uploadRef} type="file" multiple className="hidden" onChange={handleUpload} />
-      </div>
+      )}
 
-      {/* File List */}
-      <div className="flex-1 overflow-auto">
-        {/* New folder input */}
-        {newFolderMode && (
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-line bg-surface">
-            <FolderPlus className="w-4 h-4 text-blue-400" />
-            <input
-              autoFocus
-              value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleNewFolder(); if (e.key === 'Escape') setNewFolderMode(false); }}
-              className="flex-1 bg-canvas border border-line rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-accent"
-              placeholder="Folder name..."
-            />
-            <button onClick={handleNewFolder} className="p-1 text-green-400"><Check className="w-4 h-4" /></button>
-            <button onClick={() => setNewFolderMode(false)} className="p-1 text-muted"><X className="w-4 h-4" /></button>
+      {/* ── Body ────────────────────────────────────────────────── */}
+      <div className="flex-1 min-h-0 overflow-auto relative">
+        {loading && items.length === 0 && (
+          <div className="h-full flex items-center justify-center">
+            <div className="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
-        {/* New file input */}
-        {newFileMode && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 px-4 py-2 border-b border-line bg-surface">
-            <div className="flex items-center gap-2 sm:hidden">
-              <FilePlus className="w-4 h-4 text-green-400" />
-              <span className="text-xs text-muted">New File</span>
-            </div>
-            <input
-              autoFocus
-              value={newFileName}
-              onChange={e => setNewFileName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleNewFile(); if (e.key === 'Escape') setNewFileMode(false); }}
-              className="flex-1 bg-canvas border border-line rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-accent min-w-0"
-              placeholder="Enter filename..."
-            />
-            <div className="flex items-center gap-2">
-              <select
-                value={newFileType}
-                onChange={e => setNewFileType(e.target.value)}
-                className="bg-canvas border border-line rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent min-w-[120px] font-medium"
-              >
-                <option value="text">📄 Plain Text</option>
-                <option value="html">🌐 HTML</option>
-                <option value="css">🎨 CSS</option>
-                <option value="js">⚡ JavaScript</option>
-                <option value="json">📋 JSON</option>
-                <option value="md">📝 Markdown</option>
-              </select>
-              <button onClick={handleNewFile} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition" title="Create file">
-                <Check className="w-4 h-4" />
-              </button>
-              <button onClick={() => setNewFileMode(false)} className="p-2 bg-raised text-muted rounded-lg hover:bg-raised hover:text-white transition" title="Cancel">
-                <X className="w-4 h-4" />
-              </button>
+        {error && (
+          <div className="empty h-full justify-center">
+            <X className="w-10 h-10 text-danger mb-2" aria-hidden="true" />
+            <p className="empty-title">Could not read this folder</p>
+            <p className="empty-sub">{error}</p>
+            <div className="flex gap-2 mt-4">
+              <button className="btn btn-primary" onClick={() => load()}>Retry</button>
+              <button className="btn btn-quiet" onClick={() => navigate('/root')}>Go to /root</button>
             </div>
           </div>
         )}
 
-        <table className="w-full">
-          <thead className="sticky top-0 bg-surface/90 backdrop-blur text-xs text-muted border-b border-line">
-            <tr>
-              <th className="w-8 px-2 py-2"></th>
-              <th className="text-left px-2 py-2 font-medium">Name</th>
-              <th className="text-right px-3 py-2 font-medium hidden sm:table-cell">Size</th>
-              <th className="text-right px-3 py-2 font-medium hidden md:table-cell">Modified</th>
-              <th className="w-20 px-2 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredItems.map((item) => {
-              const { Icon, color } = getFileIcon(item.name, item.isDirectory);
-              const isSelected = selected.has(item.path);
-              const canEdit = !item.isDirectory && isTextFile(item.name);
-              return (
-                <tr
-                  key={item.path}
-                  className={`group border-b border-line hover:bg-surface cursor-pointer transition
-                    ${isSelected ? 'bg-accent/5' : ''}`}
-                  onClick={() => {
-                    if (item.isDirectory) navigate(item.path);
-                  }}
-                  onDoubleClick={() => {
-                    if (!item.isDirectory && canEdit) openFileInEditor(item);
-                  }}
-                  onTouchStart={() => handleTouchStart(item)}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchMove={handleTouchEnd}
-                  onContextMenu={(e) => handleContextMenu(e, item)}
-                >
-                  <td className="px-2 py-1.5">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        const next = new Set(selected);
-                        if (isSelected) next.delete(item.path); else next.add(item.path);
-                        setSelected(next);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-3.5 h-3.5 rounded border-line-strong accent-accent"
-                    />
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Icon className={`w-4 h-4 flex-shrink-0 ${color}`} />
-                      {renaming === item.path ? (
-                        <input
-                          autoFocus
-                          value={renameValue}
-                          onChange={e => setRenameValue(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleRename(item.path); if (e.key === 'Escape') setRenaming(null); }}
-                          onBlur={() => handleRename(item.path)}
-                          onClick={e => e.stopPropagation()}
-                          className="flex-1 bg-canvas border border-accent rounded px-1.5 py-0.5 text-sm text-white focus:outline-none"
-                        />
-                      ) : (
-                        <span className="text-sm text-ink truncate">{item.name}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="text-right px-3 py-1.5 text-xs text-muted hidden sm:table-cell">
-                    {item.isDirectory ? '\u2014' : formatBytes(item.size)}
-                  </td>
-                  <td className="text-right px-3 py-1.5 text-xs text-muted hidden md:table-cell">
-                    {formatDate(item.modified)}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <div className="flex items-center gap-0.5">
-                      {/* Edit button - visible on mobile, visible on hover on desktop */}
-                      {canEdit && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openFileInEditor(item); }}
-                          className="p-1 rounded text-subtle hover:text-accent transition md:opacity-0 md:group-hover:opacity-100"
-                          title="Edit"
-                        >
-                          <Code2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleContextMenu(e as any, item); }}
-                        className="p-1 rounded opacity-0 group-hover:opacity-100 text-muted hover:text-white transition"
-                      >
-                        <MoreVertical className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {!error && !loading && visible.length === 0 && (
+          <EmptyState
+            searching={!!search.trim()}
+            onNewFile={() => { setCreating('file'); setCreateName(''); }}
+            onNewFolder={() => { setCreating('folder'); setCreateName(''); }}
+            onUpload={() => uploadRef.current?.click()}
+          />
+        )}
 
-        {filteredItems.length === 0 && !loading && (
-          <div className="text-center text-subtle py-12 text-sm">
-            {search ? 'No matching files' : 'Empty directory'}
+        {!error && visible.length > 0 && (
+          view === 'grid' ? (
+            <div className="grid gap-2 p-3
+                            grid-cols-[repeat(auto-fill,minmax(104px,1fr))]">
+              {visible.map(item =>
+                renaming?.path === item.path ? (
+                  <RenameBox
+                    key={item.path}
+                    value={renameValue}
+                    onChange={setRenameValue}
+                    onCommit={rename}
+                    onCancel={() => setRenaming(null)}
+                  />
+                ) : (
+                  <FileRow
+                    key={item.path}
+                    item={item}
+                    view="grid"
+                    selected={selected.has(item.path)}
+                    cut={clipboard?.mode === 'cut' && clipboard.items.includes(item.path)}
+                    onOpen={open}
+                    onToggle={toggleSelect}
+                    onMenu={(it, x, y) => setMenu({ item: it, x, y })}
+                  />
+                )
+              )}
+            </div>
+          ) : (
+            <div role="table" aria-label="Files">
+              {visible.map(item =>
+                renaming?.path === item.path ? (
+                  <RenameBox
+                    key={item.path}
+                    row
+                    value={renameValue}
+                    onChange={setRenameValue}
+                    onCommit={rename}
+                    onCancel={() => setRenaming(null)}
+                  />
+                ) : (
+                  <FileRow
+                    key={item.path}
+                    item={item}
+                    view="list"
+                    selected={selected.has(item.path)}
+                    cut={clipboard?.mode === 'cut' && clipboard.items.includes(item.path)}
+                    onOpen={open}
+                    onToggle={toggleSelect}
+                    onMenu={(it, x, y) => setMenu({ item: it, x, y })}
+                  />
+                )
+              )}
+            </div>
+          )
+        )}
+
+        {dragOver && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center
+                          bg-canvas/80 border-2 border-dashed border-accent rounded-card m-2 pointer-events-none">
+            <div className="text-center">
+              <Upload className="w-8 h-8 text-accent mx-auto mb-2" aria-hidden="true" />
+              <p className="text-body text-ink font-medium">Drop to upload</p>
+              <p className="text-meta text-muted">into {currentPath}</p>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Context Menu */}
-      {contextMenu && (
+      {/* ── Status bar ──────────────────────────────────────────── */}
+      <footer className="shrink-0 flex items-center justify-between gap-3 px-3 h-8
+                         border-t border-line bg-surface text-label text-muted">
+        <span className="truncate">
+          {visible.length} item{visible.length === 1 ? '' : 's'}
+          {search.trim() && ` of ${items.length}`}
+          {selected.size > 0 && ` · ${selected.size} selected`}
+        </span>
+        <span className="hidden sm:inline shrink-0">
+          {visible.length > 0 ? 'Enter opens · / filters · Del removes' : ''}
+        </span>
+      </footer>
+
+      <input
+        ref={uploadRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={e => {
+          doUpload(Array.from(e.target.files || []));
+          e.target.value = '';
+        }}
+      />
+
+      {/* ── Context menu ────────────────────────────────────────── */}
+      {menu && (
         <div
-          className="fixed z-50 bg-surface border border-line rounded-control shadow-2xl py-1 min-w-[160px] animate-fade-in"
-          style={{ top: Math.min(contextMenu.y, window.innerHeight - 300), left: Math.min(contextMenu.x, window.innerWidth - 180) }}
+          className="fixed z-[100] w-44 card shadow-2xl py-1 animate-slide-up"
+          style={{
+            top: Math.min(menu.y, window.innerHeight - 280),
+            left: Math.min(menu.x, window.innerWidth - 190),
+          }}
           onClick={e => e.stopPropagation()}
+          role="menu"
         >
-          {!contextMenu.item.isDirectory && isTextFile(contextMenu.item.name) && (
-            <CtxBtn icon={Code2} label="Edit" onClick={() => { openFileInEditor(contextMenu.item); setContextMenu(null); }} />
+          <p className="px-3 py-1.5 text-label text-muted truncate border-b border-line mb-1">
+            {menu.item.isDirectory ? 'Folder' : KIND_LABEL[classifyFile(menu.item.name)]}
+          </p>
+          {!menu.item.isDirectory && isEditable(menu.item.name) && (
+            <MenuItem label="Edit" onClick={() => { setEditing(menu.item); setMenu(null); }} />
           )}
-          {!contextMenu.item.isDirectory && (
-            <CtxBtn icon={Download} label="Download" onClick={() => { const p = contextMenu.item.path; setContextMenu(null); downloadFile(p).catch((e: any) => alert(e.message || 'Download failed')); }} />
+          {!menu.item.isDirectory && !isEditable(menu.item.name) && (
+            <MenuItem label="Preview" onClick={() => { setPreviewing(menu.item); setMenu(null); }} />
           )}
-          <CtxBtn icon={Edit2} label="Rename" onClick={() => {
-            setRenaming(contextMenu.item.path);
-            setRenameValue(contextMenu.item.name);
-            setContextMenu(null);
-          }} />
-          <CtxBtn icon={Copy} label="Copy" onClick={() => {
-            setClipboard({ items: [contextMenu.item.path], mode: 'copy' });
-            setContextMenu(null);
-          }} />
-          <CtxBtn icon={Scissors} label="Cut" onClick={() => {
-            setClipboard({ items: [contextMenu.item.path], mode: 'cut' });
-            setContextMenu(null);
-          }} />
+          <MenuItem
+            icon={Download}
+            label={menu.item.isDirectory ? 'Download as zip' : 'Download'}
+            onClick={() => { download(menu.item); setMenu(null); }}
+          />
+          <MenuItem
+            icon={Edit2}
+            label="Rename"
+            onClick={() => { setRenaming(menu.item); setRenameValue(menu.item.name); setMenu(null); }}
+          />
+          <MenuItem
+            icon={Copy}
+            label="Copy"
+            onClick={() => { setClipboard({ items: [menu.item.path], mode: 'copy' }); setMenu(null); }}
+          />
+          <MenuItem
+            icon={Scissors}
+            label="Cut"
+            onClick={() => { setClipboard({ items: [menu.item.path], mode: 'cut' }); setMenu(null); }}
+          />
           <div className="border-t border-line my-1" />
-          <CtxBtn icon={Trash2} label="Delete" danger onClick={() => {
-            handleDelete([contextMenu.item.path]);
-            setContextMenu(null);
-          }} />
+          <MenuItem
+            icon={Trash2}
+            label="Delete"
+            danger
+            onClick={() => { const it = menu.item; setMenu(null); remove([it.path]); }}
+          />
         </div>
       )}
 
-      {/* Inline Editor Modal */}
-      {editingFile && (
-        <div className="fixed inset-0 z-[90] flex flex-col bg-canvas/95 backdrop-blur-sm animate-fade-in">
-          {/* Editor Header */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 px-3 md:px-4 py-2 border-b border-line bg-surface/80 flex-shrink-0">
-            <div className="flex items-center gap-2 flex-1">
-              <Code2 className="w-4 h-4 text-accent flex-shrink-0" />
-              <span className="text-sm text-white font-medium truncate flex-1">{editingFile.name}</span>
-              <span className="text-[10px] text-subtle uppercase hidden sm:inline px-2 py-0.5 bg-canvas rounded">{editingFile.language}</span>
-              {editorSaved && (
-                <span className="text-[10px] text-green-400 flex items-center gap-1 animate-fade-in px-2 py-0.5 bg-green-400/10 rounded">
-                  <Check className="w-3 h-3" /> Saved
-                </span>
-              )}
-              {editorModified && (
-                <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0 animate-pulse" title="Unsaved changes" />
-              )}
-            </div>
-            <div className="flex items-center gap-1 overflow-x-auto">
-              <button onClick={increaseFontSize} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Increase font size">
-                <span className="text-xs font-bold">A+</span>
-              </button>
-              <button onClick={decreaseFontSize} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Decrease font size">
-                <span className="text-xs font-bold">A-</span>
-              </button>
-              <div className="w-px h-6 bg-raised mx-1" />
-              <button onClick={() => { setEditorLineNumbers(!editorLineNumbers); updateEditorOption('lineNumbers', editorLineNumbers ? 'off' : 'on'); }}
-                className={`p-1.5 rounded-lg transition ${editorLineNumbers ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-raised'}`} title="Toggle line numbers">
-                <span className="text-xs font-mono">123</span>
-              </button>
-              <button onClick={() => { setEditorWordWrap(!editorWordWrap); updateEditorOption('wordWrap', editorWordWrap ? 'off' : 'on'); }}
-                className={`p-1.5 rounded-lg transition ${editorWordWrap ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-raised'}`} title="Toggle word wrap">
-                <span className="text-xs"><span className="block w-3 h-0.5 bg-current mb-0.5" /><span className="block w-2 h-0.5 bg-current" /></span>
-              </button>
-              <button onClick={() => { setEditorMinimap(!editorMinimap); updateEditorOption('minimap', { enabled: editorMinimap }); }}
-                className={`p-1.5 rounded-lg transition ${editorMinimap ? 'text-accent bg-accent/10' : 'text-muted hover:text-white hover:bg-raised'}`} title="Toggle minimap">
-                <div className="w-3 h-3 border border-current rounded-sm" />
-              </button>
-              <div className="w-px h-6 bg-raised mx-1" />
-              <button onClick={toggleFullscreen} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Toggle fullscreen">
-                {editorFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </button>
-              <div className="w-px h-6 bg-raised mx-1" />
-              <button onClick={() => { if (editorRef.current) { const monaco = monacoRef.current || (window as any).monaco; if (monaco) { const model = editorRef.current.getModel(); if (model) { const range = model.getFullModelRange(); editorRef.current.setSelection(range); editorRef.current.focus(); } } } }}
-                className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition" title="Select All">
-                <CheckSquare className="w-4 h-4" />
-              </button>
-              <button onClick={saveEditorFile} disabled={!editorModified || editorSaving}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-medium hover:bg-accent/20 transition disabled:opacity-30 border border-accent/20">
-                <Save className="w-4 h-4" />
-                <span className="hidden sm:inline">{editorSaving ? 'Saving...' : 'Save'}</span>
-              </button>
-              <button onClick={closeEditor} className="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-400/10 transition" title="Close (Esc)">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          
-          {/* Monaco Editor */}
-          <div ref={editorContainerRef} className="flex-1" />
-          
-          {/* Editor Status Bar */}
-          <div className="flex items-center justify-between px-4 py-1.5 border-t border-line bg-surface text-[11px] text-muted flex-shrink-0">
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /><span>{editingFile.language}</span></span>
-              <span className="text-muted">|</span>
-              <span className="flex items-center gap-1.5"><Terminal className="w-3.5 h-3.5" /><span>UTF-8</span></span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-subtle">Ln {editorRef.current?.getPosition()?.lineNumber || 1}, Col {editorRef.current?.getPosition()?.column || 1}</span>
-              <span className="text-subtle">{editingFile.content.split('\n').length} lines</span>
-              <span className="text-subtle">Ctrl+S to save</span>
-            </div>
-          </div>
-        </div>
+      {/* ── Overlays ────────────────────────────────────────────── */}
+      {editing && (
+        <Suspense fallback={<OverlayFallback />}>
+          <FileEditor
+            path={editing.path}
+            name={editing.name}
+            onClose={() => setEditing(null)}
+            onSaved={() => load()}
+          />
+        </Suspense>
       )}
 
-      {/* Status bar */}
-      <div className="px-4 py-1.5 border-t border-line bg-surface/30 text-xs text-muted flex justify-between items-center">
-        <span>{filteredItems.length} items{selected.size > 0 ? ` \u00b7 ${selected.size} selected` : ''}</span>
-        <input
-          value={currentPath}
-          onChange={e => setCurrentPath(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') navigate(currentPath); }}
-          className="bg-transparent text-right text-muted hover:text-white focus:text-white focus:outline-none focus:border-b focus:border-accent px-1 min-w-0 flex-1 ml-4"
-          title="Press Enter to navigate"
-        />
-      </div>
+      {previewing && (
+        <Suspense fallback={<OverlayFallback />}>
+          <FilePreview
+            path={previewing.path}
+            name={previewing.name}
+            size={previewing.size}
+            onClose={() => setPreviewing(null)}
+            onDownload={() => download(previewing)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
 
-function CtxBtn({ icon: Icon, label, onClick, danger }: { icon: any; label: string; onClick: () => void; danger?: boolean }) {
+function SortHeader({ label, active, dir, onClick, align = 'left', width = '' }: {
+  label: string; active: boolean; dir: SortDir; onClick: () => void;
+  align?: 'left' | 'right'; width?: string;
+}) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition
-        ${danger ? 'text-red-400 hover:bg-red-400/10' : 'text-ink hover:bg-raised'}`}
+      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`${width} flex items-center gap-1 hover:text-ink transition-colors
+                  ${align === 'right' ? 'justify-end' : ''}
+                  ${active ? 'text-ink' : ''}`}
     >
-      <Icon className="w-3.5 h-3.5" />
+      {label}
+      {active && <span aria-hidden="true">{dir === 'asc' ? '↑' : '↓'}</span>}
+    </button>
+  );
+}
+
+function SheetItem({ icon: Icon, label, onClick }: {
+  icon: any; label: string; onClick: () => void;
+}) {
+  return (
+    <button
+      role="menuitem"
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-3 h-11 text-body text-ink
+                 hover:bg-raised transition-colors text-left"
+    >
+      <Icon className="w-4 h-4 text-muted shrink-0" aria-hidden="true" />
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function MenuItem({ icon: Icon, label, onClick, danger }: {
+  icon?: any; label: string; onClick: () => void; danger?: boolean;
+}) {
+  return (
+    <button
+      role="menuitem"
+      onClick={onClick}
+      className={`w-full flex items-center gap-2 px-3 h-8 text-body transition-colors
+                  ${danger ? 'text-danger hover:bg-danger/10' : 'text-ink hover:bg-raised'}`}
+    >
+      {Icon && <Icon className="w-3.5 h-3.5" aria-hidden="true" />}
       {label}
     </button>
+  );
+}
+
+function RenameBox({ value, onChange, onCommit, onCancel, row }: {
+  value: string; onChange: (v: string) => void;
+  onCommit: () => void; onCancel: () => void; row?: boolean;
+}) {
+  return (
+    <div className={row ? 'px-3 h-11 flex items-center border-b border-line/60 bg-raised' : 'p-2 bg-raised rounded-card'}>
+      <input
+        autoFocus
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') onCommit();
+          if (e.key === 'Escape') onCancel();
+        }}
+        onBlur={onCommit}
+        aria-label="New name"
+        className="field !h-8"
+      />
+    </div>
   );
 }
