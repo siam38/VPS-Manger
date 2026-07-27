@@ -264,10 +264,22 @@ select {
     @apply text-muted hover:text-ink hover:bg-raised;
   }
 
+  /* Quiet destructive: red text on a faint red wash. Correct for a Delete
+   * sitting in a list of neutral actions, where the red text IS the signal. */
   .btn-danger {
     @apply bg-danger/10 text-danger border border-danger/25
            hover:bg-danger/20 hover:border-danger/40
            active:translate-y-[0.5px];
+  }
+
+  /* Filled destructive: for a primary-position action that interrupts a live
+   * service. `.btn-danger` put red text on a red wash, which at button size
+   * is red-on-red and fails AA — the label was the least readable thing in
+   * the row despite being the most consequential. Light text on solid red. */
+  .btn-danger-solid {
+    @apply bg-danger text-white border border-danger
+           hover:bg-red-500 hover:border-red-500 shadow-btn
+           active:translate-y-[0.5px] active:shadow-none;
   }
 
   .btn-sm {

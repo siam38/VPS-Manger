@@ -131,7 +131,7 @@ export const AppRow = memo(function AppRow({
               <button
                 onClick={() => onAction(online ? 'stop' : 'start')}
                 disabled={!!busy}
-                className={`btn btn-sm ${online ? 'btn-danger' : 'btn-primary'} max-md:!h-10`}
+                className={`btn btn-sm ${online ? 'btn-danger-solid' : 'btn-primary'} max-md:!h-10`}
               >
                 {busy === 'stop' || busy === 'start'
                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />

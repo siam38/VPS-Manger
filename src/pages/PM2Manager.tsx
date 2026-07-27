@@ -171,12 +171,26 @@ export default function PM2Manager() {
           </p>
         </div>
 
+        {/* Boot control carries its own state. As a bare icon+label there was
+           no way to know whether persistence was on without opening the
+           panel, so people clicked it just to find out. */}
         <button
           onClick={() => setShowBoot(true)}
           className={`btn btn-sm btn-quiet max-md:!h-10 ${bootRisk ? '!text-amber-400' : ''}`}
+          title={
+            bootRisk
+              ? 'Apps are not fully configured to restart after a reboot'
+              : 'Apps will restart after a reboot'
+          }
         >
           <Power className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
           <span className="max-sm:sr-only">Boot</span>
+          {boot && !bootRisk && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" aria-hidden="true" />
+          )}
+          {bootRisk && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" aria-hidden="true" />
+          )}
         </button>
 
         <button
