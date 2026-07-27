@@ -69,12 +69,35 @@ than a fixed 0–100 range.
 ### File manager
 
 Browse, edit, upload, download, rename, copy and delete. Directory downloads are
-streamed as ZIP archives. The built-in CodeMirror 6 editor handles syntax highlighting
-for in-place edits, and works properly on a phone — native selection handles, no
-fighting the virtual keyboard, plus a key bar for the characters a mobile keyboard
-hides. Images, audio, video and PDFs preview inline.
+streamed as ZIP archives. Every file type gets its own icon and hue — a `.json`
+does not look like a `.js`, and `package.json` does not look like any other JSON
+file — so a directory is scannable at a glance. The address bar works like Windows
+Explorer: click the breadcrumb (or press `Ctrl+L`) to type or paste a path directly.
 
 ![File manager](docs/screenshots/Files.png)
+
+On a phone the same list folds size and modified time into a secondary line, since
+there is no room for columns, and the toolbar collapses to New / Upload with
+everything else behind an overflow sheet.
+
+![File manager on mobile](docs/screenshots/Files-mobile.png)
+
+### Code editor
+
+CodeMirror 6 with on-demand grammars for ~40 languages, find and replace, code
+folding, bracket matching, autocomplete, adjustable font size, word wrap and
+optional auto-save. `Ctrl+S` (or `Cmd+S`) saves; `Ctrl+Enter` also works, because it
+is easier to reach on a phone.
+
+![Code editor](docs/screenshots/Editor.png)
+
+The editor is genuinely usable on mobile, which was the point of moving off Monaco.
+CodeMirror is `contenteditable`-based, so the OS provides native selection handles,
+caret dragging and IME instead of fighting a hidden textarea. The key bar along the
+bottom supplies the characters a phone keyboard hides — tab, braces, brackets,
+pipe, `$`, backtick — plus undo and redo.
+
+![Code editor on mobile](docs/screenshots/Editor-mobile.png)
 
 ### Terminal
 
@@ -110,9 +133,9 @@ when code updates.
 Every section is a first-class mobile view — no horizontal scrolling at 390 px.
 
 <p align="center">
-  <img src="docs/screenshots/Dashboard-mobile.png" width="30%" alt="Dashboard on mobile" />
-  <img src="docs/screenshots/PM2-mobile.png" width="30%" alt="PM2 on mobile" />
   <img src="docs/screenshots/Files-mobile.png" width="30%" alt="Files on mobile" />
+  <img src="docs/screenshots/Editor-mobile.png" width="30%" alt="Code editor on mobile" />
+  <img src="docs/screenshots/Dashboard-mobile.png" width="30%" alt="Dashboard on mobile" />
 </p>
 
 ---
@@ -134,6 +157,11 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 
 - Path-jailed browsing across allow-listed roots
 - List and grid views, sortable by name, size, type or modified time
+- **Per-type file icons** with distinct glyph *and* hue for every language family,
+  plus exact-filename overrides (`package.json`, `Dockerfile`, `.gitignore`, lock files)
+- **Editable address bar** — click the breadcrumb or press `Ctrl+L` to type or paste a path
+- **OpenClaw workspace auto-detection** — scans the allowed roots for `.openclaw`
+  installs and ranks them by content, instead of hard-coding one user's home
 - CodeMirror 6 editing with on-demand grammars for ~40 languages
 - Mobile-first editor: native selection, key bar, adjustable font, word wrap,
   optional auto-save, find and replace
