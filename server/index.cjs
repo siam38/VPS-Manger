@@ -16,6 +16,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
 const crypto = require('crypto');
+const platform = require('./platform.cjs');
 
 const app = express();
 const server = http.createServer(app);
@@ -37,8 +38,10 @@ const PASSWORD = process.env.PASSWORD;
 const JWT_SECRET = process.env.JWT_SECRET;
 const AUDIT_LOG_FILE = path.join(__dirname, 'audit.log');
 
-// Path traversal protection - define allowed base directories
-const ALLOWED_BASES = ['/root', '/var/www', '/home', '/opt', '/tmp'];
+// Path traversal protection - allowed base directories.
+// Detected at boot from /etc/passwd instead of hard-coded, so a Debian box
+// (/home/debian) or any other distro works without editing source.
+const ALLOWED_BASES = platform.ALLOWED_BASES;
 
 function validatePath(requestedPath) {
   const resolved = path.resolve(requestedPath);
@@ -64,7 +67,7 @@ const OPENCLAW_MARKERS = ['workspace', 'AGENTS.md', 'MEMORY.md', 'openclaw.json'
 async function findOpenclawDirs() {
   const found = [];
   // Home-style roots hold per-user installs; scan one level down for user dirs.
-  const scanRoots = ['/root', '/home', '/opt'];
+  const scanRoots = ['/root', '/home', '/opt'].filter(r => fs.existsSync(r));
 
   const inspect = async (dir) => {
     try {
@@ -363,6 +366,22 @@ app.get('/api/audit/logs', authMiddleware, async (req, res) => {
 });
 
 // ─── System routes ───
+/**
+ * Host layout, detected at runtime.
+ *
+ * The frontend used to carry its own copy of ALLOWED_BASES and open the file
+ * browser at a literal '/root'. On a Debian VPS the admin home is
+ * /home/debian, so both were wrong. The client now asks the server what this
+ * machine actually looks like instead of guessing.
+ */
+app.get('/api/system/platform', authMiddleware, (req, res) => {
+  try {
+    res.json(platform.summary());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/system/info', authMiddleware, async (req, res) => {
   try {
     const hostname = os.hostname();
@@ -885,7 +904,7 @@ app.post('/api/pm2/start-new', authMiddleware, async (req, res) => {
 // Browse directories + detect project files
 app.get('/api/pm2/browse-dirs', authMiddleware, async (req, res) => {
   try {
-    const dirPath = req.query.path || '/root';
+    const dirPath = req.query.path || platform.DEFAULT_PATH;
     const resolvedPath = path.resolve(dirPath);
     const entries = await fsp.readdir(resolvedPath, { withFileTypes: true });
     
@@ -1088,12 +1107,183 @@ app.post('/api/pm2/save', authMiddleware, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PM2 startup
+/* ── Boot persistence ─────────────────────────────────────────────────────
+ *
+ * "Will my app come back after a reboot?" is three separate questions, and
+ * the old single `pm2 startup` button answered none of them honestly:
+ *
+ *   1. Is the PM2 daemon itself started at boot?
+ *   2. Is the current process list saved to the dump file?
+ *   3. Does this specific app have autorestart enabled? (crash recovery,
+ *      NOT boot recovery — constantly confused with the other two)
+ *
+ * `pm2 startup` decides the init system by looking for binaries on PATH, so
+ * inside a container it happily reports "Init System found: systemd" and
+ * writes a unit that will never execute. It returns success. Nothing starts.
+ *
+ * We detect from PID 1 instead, and where systemd is genuinely unavailable
+ * we offer an @reboot crontab entry, which does work under container inits.
+ */
+
+const PM2_BIN = 'pm2';
+
+function pm2StartupUnitPath() {
+  return `/etc/systemd/system/pm2-${platform.USER.name}.service`;
+}
+
+function cronBootLine() {
+  // Explicit PM2_HOME: the daemon's home and the effective user's home can
+  // differ under `sudo -E`, and resurrect reads the dump from PM2_HOME.
+  return `@reboot PM2_HOME=${platform.PM2.home} ${process.execPath} $(command -v pm2 || echo /usr/lib/node_modules/pm2/bin/pm2) resurrect`;
+}
+
+async function readCrontab() {
+  try {
+    const { stdout } = await execAsync('crontab -l 2>/dev/null');
+    return stdout;
+  } catch { return ''; }
+}
+
+async function bootStatus() {
+  const init = platform.INIT;
+  const status = {
+    init: init.kind,
+    pid1: init.pid1,
+    inContainer: init.inContainer,
+    pm2Home: platform.PM2.home,
+    pm2HomeSource: platform.PM2.homeSource,
+    pm2HomeMismatch: platform.PM2.homeMismatch,
+    expectedPm2Home: platform.PM2.expectedHome,
+    daemonAtBoot: false,
+    method: 'none',
+    dumpExists: false,
+    dumpSavedAt: null,
+    savedApps: [],
+    warnings: [],
+    canConfigure: true,
+  };
+
+  // (2) The dump file — what resurrect will actually replay.
+  try {
+    const st = await fsp.stat(platform.PM2.dumpFile);
+    status.dumpExists = true;
+    status.dumpSavedAt = st.mtime.toISOString();
+    const dump = JSON.parse(await fsp.readFile(platform.PM2.dumpFile, 'utf8'));
+    status.savedApps = (Array.isArray(dump) ? dump : []).map(a => a.name).filter(Boolean);
+  } catch { /* never saved */ }
+
+  // (1) Is the daemon itself wired to start at boot?
+  if (init.kind === 'systemd') {
+    try {
+      const { stdout } = await execAsync(`systemctl is-enabled pm2-${platform.USER.name}.service 2>&1`);
+      if (stdout.trim() === 'enabled') { status.daemonAtBoot = true; status.method = 'systemd'; }
+    } catch { /* not enabled */ }
+  } else {
+    const cron = await readCrontab();
+    if (/pm2\b.*resurrect/.test(cron)) { status.daemonAtBoot = true; status.method = 'cron'; }
+
+    if (init.kind === 'systemd-unavailable') {
+      status.warnings.push(
+        'systemd is installed but is not PID 1 on this host, so systemd units never run. ' +
+        '`pm2 startup` will still claim success and write a unit that does nothing.'
+      );
+    } else if (init.inContainer) {
+      status.warnings.push(
+        `This host runs inside a container (PID 1 is \`${init.pid1}\`). There is no init system to ` +
+        'start PM2 at boot; the container runtime restarts the container instead. Configure a ' +
+        'restart policy there, or use the @reboot fallback if cron runs in this container.'
+      );
+    }
+    if (!init.hasCron) {
+      status.canConfigure = false;
+      status.warnings.push('`crontab` is not installed, so the @reboot fallback is unavailable.');
+    }
+  }
+
+  if (status.pm2HomeMismatch) {
+    status.warnings.push(
+      `The running PM2 daemon uses PM2_HOME=${platform.PM2.home}, but a generated startup unit ` +
+      `would assume ${platform.PM2.expectedHome}. Resurrect would read the wrong dump file and ` +
+      'start nothing. Boot config written here pins the daemon\'s actual PM2_HOME.'
+    );
+  }
+
+  return status;
+}
+
+app.get('/api/pm2/boot-status', authMiddleware, async (req, res) => {
+  try {
+    res.json(await bootStatus());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Enable or disable boot persistence, using whatever mechanism this host
+// genuinely supports. Always saves the process list first: enabling boot
+// start without a dump file produces an empty resurrect.
+app.post('/api/pm2/boot-config', authMiddleware, async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) required' });
+
+  const init = platform.INIT;
+  try {
+    if (enabled) {
+      await execAsync('pm2 save');
+
+      if (init.kind === 'systemd') {
+        const { stdout } = await execAsync(
+          `env PM2_HOME=${platform.PM2.home} pm2 startup systemd -u ${platform.USER.name} --hp ${platform.USER.home} 2>&1`
+        );
+        // pm2 prints a sudo command to run when it can't write the unit itself.
+        const cmd = stdout.split('\n').find(l => l.trim().startsWith('sudo env'));
+        if (cmd) { try { await execAsync(cmd.trim()); } catch { /* may already be applied */ } }
+        await execAsync(`systemctl enable pm2-${platform.USER.name}.service`).catch(() => {});
+      } else {
+        if (!init.hasCron) {
+          return res.status(400).json({
+            error: 'No supported boot mechanism on this host: systemd is not PID 1 and crontab is not installed.',
+          });
+        }
+        const cron = await readCrontab();
+        const kept = cron.split('\n').filter(l => l.trim() && !/pm2\b.*resurrect/.test(l));
+        kept.push(cronBootLine());
+        const tmp = path.join(os.tmpdir(), `pm2-cron-${Date.now()}`);
+        await fsp.writeFile(tmp, kept.join('\n') + '\n', { mode: 0o600 });
+        await execAsync(`crontab ${tmp}`);
+        await fsp.unlink(tmp).catch(() => {});
+      }
+    } else {
+      if (init.kind === 'systemd') {
+        await execAsync(`systemctl disable pm2-${platform.USER.name}.service`).catch(() => {});
+        await execAsync(`pm2 unstartup systemd -u ${platform.USER.name} --hp ${platform.USER.home} 2>&1`).catch(() => {});
+      } else if (init.hasCron) {
+        const cron = await readCrontab();
+        const kept = cron.split('\n').filter(l => l.trim() && !/pm2\b.*resurrect/.test(l));
+        const tmp = path.join(os.tmpdir(), `pm2-cron-${Date.now()}`);
+        await fsp.writeFile(tmp, kept.length ? kept.join('\n') + '\n' : '', { mode: 0o600 });
+        await execAsync(`crontab ${tmp}`);
+        await fsp.unlink(tmp).catch(() => {});
+      }
+    }
+
+    auditLog('pm2_boot_config', req.ip, req.get('User-Agent'), { enabled, init: init.kind });
+    res.json({ success: true, status: await bootStatus() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Legacy endpoint kept so nothing 404s, but it no longer pretends.
 app.post('/api/pm2/startup', authMiddleware, async (req, res) => {
   try {
+    const status = await bootStatus();
+    if (platform.INIT.kind !== 'systemd') {
+      return res.json({
+        success: false,
+        message: 'systemd is not the init system on this host; `pm2 startup` would report success without doing anything. Use boot persistence instead.',
+        status,
+      });
+    }
     const { stdout } = await execAsync('pm2 startup 2>&1');
     auditLog('pm2_startup', req.ip, req.get('User-Agent'), {});
-    res.json({ success: true, message: 'PM2 startup configured', output: stdout });
+    res.json({ success: true, message: 'PM2 startup configured', output: stdout, status });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1126,12 +1316,13 @@ app.get('/api/pm2/monit/:name', authMiddleware, async (req, res) => {
 // ─── Git Management ───
 const GIT_SYNC_CONFIG = path.join(__dirname, '..', 'git-sync-config.json');
 
-const GIT_SSH = 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o UserKnownHostsFile=/home/ubuntu/.ssh/known_hosts -o IdentitiesOnly=yes';
-
+// SSH identity and HOME resolved at boot by platform.cjs. Hard-coding
+// /home/ubuntu meant git ran as a stranger on any other host: no user.name,
+// no key, every push failing with a useless auth error.
 function gitExec(cwd, cmd) {
   // Use array form to avoid shell interpretation of special characters like |
   const args = cmd.match(/"[^"]*"|'[^']*'|\S+/g).map(a => a.replace(/^["']|["']$/g, ''));
-  return require('child_process').execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 30000, env: { ...process.env, HOME: '/home/ubuntu', GIT_SSH_COMMAND: GIT_SSH } }).trim();
+  return require('child_process').execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 30000, env: platform.gitEnv() }).trim();
 }
 
 function loadGitSyncConfig() {
@@ -1143,14 +1334,21 @@ function saveGitSyncConfig(config) {
 }
 
 app.get('/api/git/repos', authMiddleware, (req, res) => {
-  const searchPath = req.query.searchPath || '/root';
+  const searchPath = validatePath(req.query.searchPath || platform.DEFAULT_PATH);
+  if (!searchPath) return res.status(400).json({ error: 'Invalid search path' });
   try {
-    const output = execSync(`find ${searchPath} -maxdepth 3 -name ".git" -type d 2>/dev/null`, { encoding: 'utf8', timeout: 10000 });
+    // execFile with an argument array: a path containing shell metacharacters
+    // can no longer break out of the command.
+    const output = require('child_process').execFileSync(
+      'find', [searchPath, '-maxdepth', '3', '-name', '.git', '-type', 'd'],
+      { encoding: 'utf8', timeout: 10000 }
+    );
     const repos = output.trim().split('\n').filter(Boolean).map(p => {
       const rp = path.dirname(p);
       try {
-        const branch = execSync(`git -C "${rp}" branch --show-current`, { encoding: 'utf8', env: { ...process.env, HOME: '/home/ubuntu', GIT_SSH_COMMAND: GIT_SSH } }).trim();
-        const remote = execSync(`git -C "${rp}" remote get-url origin 2>/dev/null`, { encoding: 'utf8', env: { ...process.env, HOME: '/home/ubuntu', GIT_SSH_COMMAND: GIT_SSH } }).trim();
+        const branch = gitExec(rp, 'branch --show-current');
+        let remote = '';
+        try { remote = gitExec(rp, 'remote get-url origin'); } catch { remote = ''; }
         return { path: rp, branch, remote };
       } catch { return { path: rp, branch: '?', remote: '?' }; }
     });

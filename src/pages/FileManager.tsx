@@ -9,6 +9,7 @@ import { apiGet, apiPost, apiDelete, downloadFile, uploadFiles } from '../lib/ap
 import { classifyFile, isEditable, KIND_LABEL } from '../lib/fileTypes';
 import { useToast } from '../lib/toast';
 import { FileRow, EmptyState, type FileItem } from '../components/files/FileRow';
+import { getPlatform, type PlatformInfo } from '../lib/platform';
 
 // The editor pulls in CodeMirror and a grammar; the preview pulls in nothing
 // heavy but is still dead weight while you are only browsing. Both are split
@@ -24,8 +25,6 @@ function OverlayFallback() {
   );
 }
 
-const ALLOWED_BASES = ['/root', '/var/www', '/home', '/opt', '/tmp'];
-
 interface OpenclawDir {
   path: string;
   workspace: string | null;
@@ -38,19 +37,31 @@ type SortKey = 'name' | 'size' | 'modified' | 'type';
 type SortDir = 'asc' | 'desc';
 type ViewMode = 'list' | 'grid';
 
-function baseOf(p: string) {
-  return ALLOWED_BASES.find(b => p.startsWith(b)) || '/root';
+// Allowed bases now come from the server's runtime detection rather than a
+// duplicated literal list. A Debian host's /home/debian is reachable without
+// editing source, and the two copies can no longer drift apart.
+function baseOf(p: string, bases: string[], fallback: string) {
+  const match = bases
+    .filter(b => p === b || p.startsWith(b.endsWith('/') ? b : b + '/'))
+    .sort((a, b) => b.length - a.length)[0];
+  return match || fallback;
 }
 
-function parentOf(p: string) {
+function parentOf(p: string, bases: string[], fallback: string) {
   const up = p.substring(0, p.lastIndexOf('/'));
-  return up || baseOf(p);
+  return up || baseOf(p, bases, fallback);
 }
 
 export default function FileManager() {
   const toast = useToast();
 
-  const [currentPath, setCurrentPath] = useState('/root');
+  // Host layout comes from the server. Until it lands we have no honest
+  // default, so start empty and navigate once detection resolves.
+  const [plat, setPlat] = useState<PlatformInfo | null>(null);
+  const bases = plat?.allowedBases ?? [];
+  const homePath = plat?.defaultPath ?? '';
+
+  const [currentPath, setCurrentPath] = useState('');
   const [items, setItems] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +117,7 @@ export default function FileManager() {
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async (target?: string) => {
     const p = target ?? currentPath;
+    if (!p) return; // platform not resolved yet
     setLoading(true);
     setError(null);
     try {
@@ -123,7 +135,20 @@ export default function FileManager() {
     }
   }, [currentPath, showHidden]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [showHidden]);
+  // Resolve the host layout once, then open at its real default path.
+  // Previously this opened at a literal '/root', which is the wrong place on
+  // any VPS where projects live in a user home.
+  useEffect(() => {
+    let alive = true;
+    getPlatform().then(info => {
+      if (!alive) return;
+      setPlat(info);
+      setCurrentPath(cur => cur || info.defaultPath);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [showHidden, plat]);
 
   const navigate = useCallback((p: string) => {
     setHistory(h => [...h, currentPath].slice(-50));
@@ -133,7 +158,7 @@ export default function FileManager() {
 
   const goBack = useCallback(() => {
     setHistory(h => {
-      if (!h.length) { load(parentOf(currentPath)); return h; }
+      if (!h.length) { load(parentOf(currentPath, bases, homePath)); return h; }
       const prev = h[h.length - 1];
       load(prev);
       return h.slice(0, -1);
@@ -425,7 +450,7 @@ export default function FileManager() {
           </button>
           <button
             className="btn-icon !w-8 !h-8 max-md:!w-10 max-md:!h-10"
-            onClick={() => navigate(baseOf(currentPath))}
+            onClick={() => navigate(baseOf(currentPath, bases, homePath))}
             aria-label="Go to base folder"
           >
             <Home className="w-4 h-4" aria-hidden="true" />
@@ -708,13 +733,13 @@ export default function FileManager() {
                   role="menu"
                 >
                   <p className="px-3 py-1.5 eyebrow border-b border-line mb-1">Base folders</p>
-                  {ALLOWED_BASES.map(b => (
+                  {bases.map(b => (
                     <SheetItem
                       key={b}
                       icon={FolderPlus}
                       label={b}
                       mono
-                      active={baseOf(currentPath) === b}
+                      active={baseOf(currentPath, bases, homePath) === b}
                       onClick={() => { navigate(b); setJumpOpen(false); }}
                     />
                   ))}
@@ -880,11 +905,11 @@ export default function FileManager() {
                     <label htmlFor="base-jump" className="eyebrow block mb-1.5">Jump to</label>
                     <select
                       id="base-jump"
-                      value={baseOf(currentPath)}
+                      value={baseOf(currentPath, bases, homePath)}
                       onChange={e => { navigate(e.target.value); setOverflow(false); }}
                       className="field !h-10"
                     >
-                      {ALLOWED_BASES.map(b => <option key={b} value={b}>{b}</option>)}
+                      {bases.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
                 </div>
@@ -992,7 +1017,7 @@ export default function FileManager() {
             <p className="empty-sub">{error}</p>
             <div className="flex gap-2 mt-4">
               <button className="btn btn-primary" onClick={() => load()}>Retry</button>
-              <button className="btn btn-quiet" onClick={() => navigate('/root')}>Go to /root</button>
+              <button className="btn btn-quiet" onClick={() => navigate(homePath)}>Go to {homePath || 'home'}</button>
             </div>
           </div>
         )}
