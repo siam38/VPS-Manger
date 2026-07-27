@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import {
-  ChevronRight, Info, Play, RotateCcw, ScrollText, Square, Trash2,
+  ChevronRight, Info, Loader2, Play, RotateCcw, ScrollText, Square, Trash2,
 } from 'lucide-react';
 import { formatBytes } from '../../lib/utils';
 import {
@@ -45,6 +45,11 @@ export const AppRow = memo(function AppRow({
   const mem = app.monit?.memory ?? 0;
   const cTone = cpuTone(cpu);
   const bootInfo = bootSummary(boot, app.name);
+  // A process PM2 keeps reviving is failing, not healthy. High restart counts
+  // were rendered in the same muted tone as every other metric, so a crash
+  // loop looked identical to a stable service.
+  const restarts = app.pm2_env.restart_time ?? 0;
+  const looping = online && restarts >= 5;
 
   return (
     <div
@@ -118,18 +123,21 @@ export const AppRow = memo(function AppRow({
                 />
               </button>
 
-              {/* The label stays on mobile. Hiding it turned the disruptive
-                  action into a bare 16px glyph reading as a checkbox, while
-                  Start kept its filled chip — two affordances for one slot,
-                  with the riskier one smaller and unlabelled. */}
+              {/* Stop is service-interrupting and should read that way. It
+                  was `btn-quiet` — identical weight to a neutral control — so
+                  the action that takes a live service down looked exactly as
+                  consequential as toggling a log panel. Danger tone, but only
+                  on the row that is actually running. */}
               <button
                 onClick={() => onAction(online ? 'stop' : 'start')}
                 disabled={!!busy}
-                className={`btn btn-sm ${online ? 'btn-quiet' : 'btn-primary'} max-md:!h-10`}
+                className={`btn btn-sm ${online ? 'btn-danger' : 'btn-primary'} max-md:!h-10`}
               >
-                {online
-                  ? <Square className="w-3.5 h-3.5 fill-current" strokeWidth={0} aria-hidden="true" />
-                  : <Play className="w-3.5 h-3.5 fill-current" strokeWidth={0} aria-hidden="true" />}
+                {busy === 'stop' || busy === 'start'
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                  : online
+                    ? <Square className="w-3.5 h-3.5 fill-current" strokeWidth={0} aria-hidden="true" />
+                    : <Play className="w-3.5 h-3.5 fill-current" strokeWidth={0} aria-hidden="true" />}
                 <span>{online ? 'Stop' : 'Start'}</span>
               </button>
             </div>
@@ -150,8 +158,8 @@ export const AppRow = memo(function AppRow({
             <Metric label="up" value={formatUptime(app.pm2_env.pm_uptime, status)} />
             <Metric
               label="restarts"
-              value={String(app.pm2_env.restart_time ?? 0)}
-              tone={(app.pm2_env.restart_time ?? 0) > 10 ? 'warn' : 'idle'}
+              value={String(restarts)}
+              tone={restarts >= 15 ? 'danger' : restarts >= 5 ? 'warn' : 'idle'}
             />
           </dl>
 
@@ -160,6 +168,12 @@ export const AppRow = memo(function AppRow({
               once in the page banner instead of on every card. */}
           {!bootInfo.onBoot && !hostBootBroken && (
             <p className="text-label text-amber-400/80 mt-1.5">{bootInfo.reason}</p>
+          )}
+
+          {looping && (
+            <p className="text-label text-amber-400/90 mt-1.5">
+              Restarted {restarts} times — check the logs, this app may be crash-looping.
+            </p>
           )}
         </div>
       </div>
