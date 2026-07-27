@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import {
-  CornerDownLeft, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
+  CornerDownLeft, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ClipboardPaste,
 } from 'lucide-react';
 import {
   ctrlByte, KEY_ESC, KEY_TAB, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
-  KEY_HOME, KEY_END, KEY_PGUP, KEY_PGDN,
 } from '../lib/termTheme';
 
 /**
@@ -12,12 +11,19 @@ import {
  *
  * A phone's virtual keyboard has no Ctrl, Esc, Tab, arrows or pipe. Without
  * these a mobile terminal can echo text and nothing else — you cannot break a
- * running process, complete a path, or recall history. This is the same
- * problem the editor's key bar solved, and the same fix.
+ * running process, complete a path, or recall history. Same problem the editor
+ * had, same fix.
  *
- * Modifiers are *sticky*: tap Ctrl, then C, and `^C` is sent. That is the only
- * workable model on a touch screen, where chording is impossible. Double-tap
- * locks a modifier on until tapped off, for sequences like Ctrl+A then Ctrl+K.
+ * Layout rules learned from review:
+ *  - Nothing scrolls horizontally on the primary row. The first version put
+ *    Ctrl+C — the single most important key on a server — off the right edge
+ *    of a scroll container, which is worse than omitting it.
+ *  - Keys are a fixed grid, not content-width. Content-width buttons produced
+ *    a ransom-note row of eight different widths.
+ *  - Arrows are the highest-frequency keys (shell history, cursor movement) so
+ *    they get full-size targets rather than the smallest ones.
+ *  - The bar has real horizontal padding; the punctuation row was previously
+ *    clipped against both screen edges.
  */
 
 interface Props {
@@ -25,145 +31,112 @@ interface Props {
   onPaste: () => void;
 }
 
-type Mod = 'ctrl' | 'alt';
+type ModState = 'off' | 'once' | 'lock';
 
-const QUICK_CHARS = ['|', '~', '/', '-', '_', '$', '*', '&', '"', "'", '`', '{', '}', '[', ']', '(', ')', '<', '>', '#', '!', '=', '+', ';', ':', '?', '\\', '%', '@', '.'];
+/** Trimmed from 30 to the characters that actually matter in a shell, so each
+ *  target clears ~40px instead of ~28px. */
+const QUICK_CHARS = ['|', '/', '-', '_', '~', '$', '.', ':', '*', '"', "'", '>', '&', '\\', '{', '}', '[', ']', '(', ')', '#', '!', '=', '?', '+', ';', '@', '%'];
 
 export default function TerminalKeyBar({ onKey, onPaste }: Props) {
-  // 'off' | 'once' (consumed by next key) | 'lock' (stays until tapped off)
-  const [ctrl, setCtrl] = useState<'off' | 'once' | 'lock'>('off');
-  const [alt, setAlt] = useState<'off' | 'once' | 'lock'>('off');
+  const [ctrl, setCtrl] = useState<ModState>('off');
+  const [alt, setAlt] = useState<ModState>('off');
 
-  const cycle = (cur: 'off' | 'once' | 'lock'): 'off' | 'once' | 'lock' =>
-    cur === 'off' ? 'once' : cur === 'once' ? 'lock' : 'off';
+  // off -> once (next key only) -> lock (until tapped off). Chording is
+  // impossible on a touch screen, so modifiers must be sticky.
+  const cycle = (c: ModState): ModState => (c === 'off' ? 'once' : c === 'once' ? 'lock' : 'off');
 
-  const consume = (mod: Mod) => {
-    if (mod === 'ctrl') setCtrl(c => (c === 'once' ? 'off' : c));
-    else setAlt(a => (a === 'once' ? 'off' : a));
+  const consume = () => {
+    setCtrl(c => (c === 'once' ? 'off' : c));
+    setAlt(a => (a === 'once' ? 'off' : a));
   };
 
-  /** Applies any pending modifiers to a literal character. */
   const sendChar = (ch: string) => {
     if (ctrl !== 'off') {
       const b = ctrlByte(ch);
-      if (b) {
-        onKey(b);
-        consume('ctrl');
-        consume('alt');
-        return;
-      }
+      if (b) { onKey(b); consume(); return; }
     }
-    if (alt !== 'off') {
-      onKey('\x1b' + ch); // Alt is transmitted as ESC-prefix
-      consume('alt');
-      consume('ctrl');
-      return;
-    }
+    if (alt !== 'off') { onKey('\x1b' + ch); consume(); return; }
     onKey(ch);
   };
 
-  const sendRaw = (seq: string) => {
-    onKey(seq);
-    consume('ctrl');
-    consume('alt');
-  };
+  const sendRaw = (seq: string) => { onKey(seq); consume(); };
 
-  /**
-   * Without this the editor/terminal loses focus on every tap and the virtual
-   * keyboard collapses after each press. Do not remove it.
-   */
-  const hold = (e: React.MouseEvent | React.TouchEvent) => e.preventDefault();
+  /** Without this the terminal loses focus on every tap and the virtual
+   *  keyboard collapses after each press. Do not remove it. */
+  const hold = (e: React.MouseEvent) => e.preventDefault();
 
-  const modClass = (s: 'off' | 'once' | 'lock') =>
+  // 44px minimum touch target, uniform width, consistent radius and weight.
+  const key =
+    'h-11 rounded-control border border-line bg-raised text-ink text-meta font-medium ' +
+    'flex items-center justify-center select-none ' +
+    'active:bg-accent/30 active:border-accent/50 active:scale-[0.96] ' +
+    'transition-[background-color,border-color,transform] duration-100';
+
+  const modClass = (s: ModState) =>
     s === 'lock'
-      ? 'bg-accent text-canvas shadow-btn'
+      ? 'bg-accent text-canvas border-accent shadow-btn'
       : s === 'once'
-        ? 'bg-accent/20 text-accent border-accent/40'
+        ? 'bg-accent/25 text-accent border-accent/50'
         : 'bg-raised text-ink border-line';
-
-  const keyBase =
-    'shrink-0 h-9 min-w-[2.25rem] px-2 rounded-control border border-line ' +
-    'bg-raised text-ink text-meta font-mono ' +
-    'active:bg-accent/25 active:border-accent/40 transition-colors ' +
-    'flex items-center justify-center select-none';
 
   return (
     <div
-      className="md:hidden border-t border-line bg-surface"
-      // Keeps the bar above the virtual keyboard on iOS Safari.
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="md:hidden border-t border-line bg-surface px-2 pt-2"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)' }}
     >
-      {/* Row 1: modifiers, navigation, the keys you cannot otherwise produce */}
-      <div className="flex items-center gap-1.5 px-2 py-1.5 overflow-x-auto scrollbar-none">
+      {/* Row 1 — everything critical, all on screen, no horizontal scroll. */}
+      <div className="grid grid-cols-8 gap-1.5">
         <button
-          onMouseDown={hold}
-          onClick={() => setCtrl(cycle)}
-          aria-pressed={ctrl !== 'off'}
-          aria-label="Control modifier"
-          className={`${keyBase} font-sans font-semibold ${modClass(ctrl)}`}
-        >
-          Ctrl
-        </button>
+          onMouseDown={hold} onClick={() => setCtrl(cycle)}
+          aria-pressed={ctrl !== 'off'} aria-label="Control modifier"
+          className={`${key} ${modClass(ctrl)}`}
+        >Ctrl</button>
         <button
-          onMouseDown={hold}
-          onClick={() => setAlt(cycle)}
-          aria-pressed={alt !== 'off'}
-          aria-label="Alt modifier"
-          className={`${keyBase} font-sans font-semibold ${modClass(alt)}`}
-        >
-          Alt
-        </button>
+          onMouseDown={hold} onClick={() => setAlt(cycle)}
+          aria-pressed={alt !== 'off'} aria-label="Alt modifier"
+          className={`${key} ${modClass(alt)}`}
+        >Alt</button>
+        <button onMouseDown={hold} onClick={() => sendRaw(KEY_ESC)} className={key} aria-label="Escape">Esc</button>
+        <button onMouseDown={hold} onClick={() => sendRaw(KEY_TAB)} className={key} aria-label="Tab">Tab</button>
 
-        <span className="w-px h-5 bg-line shrink-0" aria-hidden />
-
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_ESC)} className={`${keyBase} font-sans`} aria-label="Escape">Esc</button>
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_TAB)} className={`${keyBase} font-sans`} aria-label="Tab">Tab</button>
-
-        <span className="w-px h-5 bg-line shrink-0" aria-hidden />
-
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_UP)} className={keyBase} aria-label="Arrow up"><ArrowUp className="w-4 h-4" strokeWidth={1.75} /></button>
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_DOWN)} className={keyBase} aria-label="Arrow down"><ArrowDown className="w-4 h-4" strokeWidth={1.75} /></button>
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_LEFT)} className={keyBase} aria-label="Arrow left"><ArrowLeft className="w-4 h-4" strokeWidth={1.75} /></button>
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_RIGHT)} className={keyBase} aria-label="Arrow right"><ArrowRight className="w-4 h-4" strokeWidth={1.75} /></button>
-
-        <span className="w-px h-5 bg-line shrink-0" aria-hidden />
-
-        {/* Ctrl+C is the single most-needed key on a server terminal, so it
-            gets a dedicated button rather than requiring a two-tap chord. */}
+        {/* Ctrl+C is the most-reached-for key on a server terminal. It gets a
+            fixed, always-visible slot and the only semantic colour here. */}
         <button
-          onMouseDown={hold}
-          onClick={() => onKey('\x03')}
-          className={`${keyBase} font-sans text-danger border-danger/30`}
+          onMouseDown={hold} onClick={() => { onKey('\x03'); consume(); }}
+          className={`${key} bg-danger/10 text-danger border-danger/30 font-mono`}
           aria-label="Send interrupt, Control C"
-        >
-          ^C
+        >^C</button>
+        <button onMouseDown={hold} onClick={() => { onKey('\x04'); consume(); }} className={`${key} font-mono`} aria-label="Send end of file, Control D">^D</button>
+        <button onMouseDown={hold} onClick={() => { onKey('\x0c'); consume(); }} className={`${key} font-mono`} aria-label="Clear screen, Control L">^L</button>
+        <button onMouseDown={hold} onClick={onPaste} className={key} aria-label="Paste from clipboard">
+          <ClipboardPaste className="w-4 h-4" strokeWidth={1.75} />
         </button>
-        <button onMouseDown={hold} onClick={() => onKey('\x04')} className={`${keyBase} font-sans`} aria-label="Send end of file, Control D">^D</button>
-        <button onMouseDown={hold} onClick={() => onKey('\x0c')} className={`${keyBase} font-sans`} aria-label="Clear screen, Control L">^L</button>
-        <button onMouseDown={hold} onClick={() => onKey('\x1a')} className={`${keyBase} font-sans`} aria-label="Suspend, Control Z">^Z</button>
-
-        <span className="w-px h-5 bg-line shrink-0" aria-hidden />
-
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_HOME)} className={`${keyBase} font-sans`} aria-label="Home">Home</button>
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_END)} className={`${keyBase} font-sans`} aria-label="End">End</button>
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_PGUP)} className={`${keyBase} font-sans`} aria-label="Page up">PgUp</button>
-        <button onMouseDown={hold} onClick={() => sendRaw(KEY_PGDN)} className={`${keyBase} font-sans`} aria-label="Page down">PgDn</button>
-
-        <span className="w-px h-5 bg-line shrink-0" aria-hidden />
-
-        <button onMouseDown={hold} onClick={onPaste} className={`${keyBase} font-sans px-2.5`} aria-label="Paste from clipboard">Paste</button>
-        <button onMouseDown={hold} onClick={() => onKey('\r')} className={`${keyBase} px-2.5`} aria-label="Enter"><CornerDownLeft className="w-4 h-4" strokeWidth={1.75} /></button>
       </div>
 
-      {/* Row 2: punctuation. Buried behind two menus on a phone keyboard, and
-          unusable for shell work at that depth. */}
-      <div className="flex items-center gap-1 px-2 pb-1.5 overflow-x-auto scrollbar-none">
+      {/* Row 2 — arrows get full-size targets; they drive shell history. */}
+      <div className="grid grid-cols-8 gap-1.5 mt-1.5">
+        <button onMouseDown={hold} onClick={() => sendRaw(KEY_LEFT)} className={`${key} col-span-1`} aria-label="Arrow left"><ArrowLeft className="w-4 h-4" strokeWidth={2} /></button>
+        <button onMouseDown={hold} onClick={() => sendRaw(KEY_DOWN)} className={`${key} col-span-1`} aria-label="Arrow down"><ArrowDown className="w-4 h-4" strokeWidth={2} /></button>
+        <button onMouseDown={hold} onClick={() => sendRaw(KEY_UP)} className={`${key} col-span-1`} aria-label="Arrow up"><ArrowUp className="w-4 h-4" strokeWidth={2} /></button>
+        <button onMouseDown={hold} onClick={() => sendRaw(KEY_RIGHT)} className={`${key} col-span-1`} aria-label="Arrow right"><ArrowRight className="w-4 h-4" strokeWidth={2} /></button>
+        <button onMouseDown={hold} onClick={() => sendChar('|')} className={`${key} font-mono`} aria-label="Insert pipe">|</button>
+        <button onMouseDown={hold} onClick={() => sendChar('/')} className={`${key} font-mono`} aria-label="Insert slash">/</button>
+        <button onMouseDown={hold} onClick={() => sendChar('-')} className={`${key} font-mono`} aria-label="Insert hyphen">-</button>
+        <button
+          onMouseDown={hold} onClick={() => { onKey('\r'); consume(); }}
+          className={`${key} bg-accent/15 text-accent border-accent/40`} aria-label="Enter"
+        ><CornerDownLeft className="w-4 h-4" strokeWidth={2} /></button>
+      </div>
+
+      {/* Row 3 — punctuation. Scrollable by design, but padded so no key is
+          clipped against a screen edge, and faded to signal more content. */}
+      <div className="flex items-center gap-1.5 mt-1.5 overflow-x-auto scrollbar-none mask-fade-l">
         {QUICK_CHARS.map(ch => (
           <button
             key={ch}
             onMouseDown={hold}
             onClick={() => sendChar(ch)}
-            className="shrink-0 w-8 h-8 rounded-chip bg-canvas border border-line/70 text-meta font-mono text-subtle active:bg-accent/25 active:text-ink transition-colors flex items-center justify-center"
+            className="shrink-0 w-10 h-10 rounded-control bg-canvas border border-line/70 text-meta font-mono text-subtle active:bg-accent/25 active:text-ink active:scale-[0.96] transition-[background-color,transform] duration-100 flex items-center justify-center"
             aria-label={`Insert ${ch}`}
           >
             {ch}

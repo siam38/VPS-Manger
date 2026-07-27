@@ -291,7 +291,10 @@ const TerminalPane = React.forwardRef<TerminalPaneHandle, Props>(function Termin
 
   return (
     <div className="absolute inset-0" style={{ background: TERM_BG }}>
-      <div ref={hostRef} className="w-full h-full px-2 py-1.5" />
+      {/* Real padding: the prompt was flush against the screen edge on mobile,
+          which is the cheapest possible tell that a layout was never checked
+          on a phone. */}
+      <div ref={hostRef} className="w-full h-full px-3 py-2 max-md:px-3" />
     </div>
   );
 });
