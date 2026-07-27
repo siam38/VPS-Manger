@@ -101,10 +101,18 @@ pipe, `$`, backtick — plus undo and redo.
 
 ### Terminal
 
-Full PTY-backed terminal via `node-pty` and xterm.js, with multiple tabs, resize
-propagation and clickable links.
+Full PTY-backed terminal via `node-pty` and CodeMirror-era xterm.js, rebuilt for
+phones as well as desktops: multiple sessions, split panes, scrollback search,
+and a mobile key bar for the keys a virtual keyboard cannot produce.
 
 ![Terminal](docs/screenshots/Terminal.png)
+
+On mobile, sticky `Ctrl`/`Alt` modifiers apply to the phone's own keyboard as
+well as the bar's buttons, so `Ctrl`+`C` actually interrupts a running process.
+The bar tracks the visual viewport, so it stays above the on-screen keyboard
+instead of being pushed underneath it.
+
+![Terminal on mobile](docs/screenshots/Terminal-mobile.png)
 
 ### Processes
 
@@ -177,7 +185,18 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 <details open>
 <summary><strong>Terminal</strong></summary>
 
-- Real PTY sessions with multiple concurrent tabs
+- Real PTY sessions with multiple concurrent tabs and desktop split panes
+- Sessions spawn in the effective user's real home directory
+- Shell environment is isolated from the panel's own config, so `PASSWORD`,
+  `JWT_SECRET` and `PORT` never leak into a session
+- Mobile key bar: `Ctrl`, `Alt`, `Esc`, `Tab`, arrows, `^C`/`^D`/`^L` and shell
+  punctuation, on a 44px touch grid
+- Sticky modifiers shared with the device keyboard, so `Ctrl`+`C` works when the
+  letter is typed on the phone rather than tapped in the bar
+- Keyboard-aware layout via the VisualViewport API
+- Scrollback search, adjustable text size, quick-command palette
+- WebGL rendering with automatic canvas fallback
+- Live tab titles from the shell's own OSC title, plus reconnect/exit states
 - Automatic fit/resize propagation to the server
 - Web-link detection
 
