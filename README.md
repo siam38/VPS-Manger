@@ -69,8 +69,10 @@ than a fixed 0–100 range.
 ### File manager
 
 Browse, edit, upload, download, rename, copy and delete. Directory downloads are
-streamed as ZIP archives. The built-in Monaco editor handles syntax highlighting for
-in-place edits.
+streamed as ZIP archives. The built-in CodeMirror 6 editor handles syntax highlighting
+for in-place edits, and works properly on a phone — native selection handles, no
+fighting the virtual keyboard, plus a key bar for the characters a mobile keyboard
+hides. Images, audio, video and PDFs preview inline.
 
 ![File manager](docs/screenshots/Files.png)
 
@@ -131,9 +133,16 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 <summary><strong>File management</strong></summary>
 
 - Path-jailed browsing across allow-listed roots
-- Monaco-powered editing with language detection
-- Multi-file upload (100 MB per file) and ZIP directory download
+- List and grid views, sortable by name, size, type or modified time
+- CodeMirror 6 editing with on-demand grammars for ~40 languages
+- Mobile-first editor: native selection, key bar, adjustable font, word wrap,
+  optional auto-save, find and replace
+- Inline preview for images (zoom/rotate), audio, video and PDF
+- Multi-file upload (100 MB per file) with real progress, plus drag and drop
+- ZIP directory download
 - Copy, move, rename, delete, create file/folder, hidden-file toggle
+- Range select with shift-click; keyboard shortcuts for copy, cut, paste, delete,
+  select-all, filter and refresh
 
 </details>
 
@@ -201,7 +210,7 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 | Layer | Technology |
 |---|---|
 | UI | React 18, React Router 7, Tailwind CSS 3 |
-| Editor / terminal | Monaco Editor, xterm.js 5 |
+| Editor / terminal | CodeMirror 6, xterm.js 5 |
 | Build | Vite 6, TypeScript 5.6 |
 | Server | Express 4, Socket.IO 4 |
 | Process/PTY | node-pty, PM2 |
@@ -211,16 +220,21 @@ Every section is a first-class mobile view — no horizontal scrolling at 390 px
 
 ```
 src/
-├── components/     Layout shell, Git-sync wizard
-├── lib/            api.ts (fetch + auth), socket.ts, utils.ts
+├── components/     Layout shell, Git-sync wizard,
+│                   CodeEditor / FileEditor / FilePreview, files/FileRow
+├── lib/            api.ts (fetch + auth), socket.ts, utils.ts, toast.tsx,
+│                   fileTypes.ts, editorTheme.ts, editorLanguages.ts
 ├── pages/          Dashboard, FileManager, Terminal, Processes,
 │                   PM2Manager, GitSync, Login
 ├── index.css       Design tokens + component primitives
-└── App.tsx         Auth gate, error boundary, lazy routes
+└── App.tsx         Auth gate, error boundary, toast provider, lazy routes
 ```
 
-Pages are lazy-loaded, so Monaco, xterm and the heavier managers are fetched only when
-their route is visited.
+Pages are lazy-loaded, so xterm and the heavier managers are fetched only when their
+route is visited. The editor is split out again below the route: browsing a folder
+costs ~53 KB, and CodeMirror is only downloaded when you actually open a file.
+Language grammars load individually on demand, so editing a `.sh` file never fetches
+the TypeScript parser.
 
 ---
 
