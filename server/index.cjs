@@ -50,6 +50,72 @@ function validatePath(requestedPath) {
   return resolved;
 }
 
+/**
+ * Locate OpenClaw workspaces anywhere in the allowed roots.
+ *
+ * Previously the panel hard-coded /home/ubuntu/.openclaw, which is wrong on any
+ * box where the agent runs as a different user. This walks the allowed bases
+ * looking for `.openclaw` directories and ranks them, so a real workspace (one
+ * with AGENTS.md / MEMORY.md / a workspace dir) sorts above a bare state stub
+ * like the one root gets.
+ */
+const OPENCLAW_MARKERS = ['workspace', 'AGENTS.md', 'MEMORY.md', 'openclaw.json', 'skills', 'agents'];
+
+async function findOpenclawDirs() {
+  const found = [];
+  // Home-style roots hold per-user installs; scan one level down for user dirs.
+  const scanRoots = ['/root', '/home', '/opt'];
+
+  const inspect = async (dir) => {
+    try {
+      const entries = await fsp.readdir(dir);
+      let score = 0;
+      const has = [];
+      for (const m of OPENCLAW_MARKERS) {
+        if (entries.includes(m)) { score += 1; has.push(m); }
+      }
+      const st = await fsp.stat(dir);
+      found.push({
+        path: dir,
+        score,
+        markers: has,
+        entries: entries.length,
+        modified: st.mtime,
+        // A workspace subdir is the useful landing spot when it exists.
+        workspace: entries.includes('workspace') ? path.join(dir, 'workspace') : null,
+      });
+    } catch { /* unreadable: skip */ }
+  };
+
+  for (const root of scanRoots) {
+    // <root>/.openclaw
+    try {
+      const direct = path.join(root, '.openclaw');
+      if ((await fsp.stat(direct)).isDirectory()) await inspect(direct);
+    } catch {}
+
+    // <root>/<user>/.openclaw
+    try {
+      const users = await fsp.readdir(root, { withFileTypes: true });
+      for (const u of users) {
+        if (!u.isDirectory() || u.name.startsWith('.')) continue;
+        try {
+          const candidate = path.join(root, u.name, '.openclaw');
+          if ((await fsp.stat(candidate)).isDirectory()) await inspect(candidate);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  // Richest install first; break ties on recency.
+  found.sort((a, b) =>
+    b.score - a.score ||
+    b.entries - a.entries ||
+    new Date(b.modified) - new Date(a.modified)
+  );
+  return found;
+}
+
 // ─── IP Lockout System ───
 const failedAttempts = new Map(); // IP -> { count, lockedUntil }
 
@@ -426,6 +492,26 @@ app.post('/api/system/action/:action', authMiddleware, async (req, res) => {
 
 // ─── File routes ───
 const upload = multer({ dest: '/tmp/uploads/', limits: { fileSize: 100 * 1024 * 1024 } });
+
+// Where are the OpenClaw workspaces on this box? Detected, never hard-coded.
+app.get('/api/files/openclaw', authMiddleware, async (req, res) => {
+  try {
+    const dirs = await findOpenclawDirs();
+    res.json({
+      found: dirs.length > 0,
+      // Best landing spot: the workspace dir when one exists, else the root.
+      primary: dirs.length ? (dirs[0].workspace || dirs[0].path) : null,
+      dirs: dirs.map(d => ({
+        path: d.path,
+        workspace: d.workspace,
+        markers: d.markers,
+        entries: d.entries,
+        // A bare `state`-only stub is not a real workspace; let the UI say so.
+        stub: d.score === 0,
+      })),
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 app.get('/api/files/list', authMiddleware, async (req, res) => {
   const dirPath = req.query.path || '/';

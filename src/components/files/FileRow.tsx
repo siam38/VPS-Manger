@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Folder as FolderIcon } from 'lucide-react';
+import { Check, Folder as FolderIcon, MoreHorizontal } from 'lucide-react';
 import { getFileIcon, formatBytes, formatDate } from '../../lib/utils';
 import { classifyFile } from '../../lib/fileTypes';
 
@@ -85,36 +85,47 @@ export const FileRow = React.memo(function FileRow({
       }}
       onContextMenu={openMenu}
       aria-label={`${item.isDirectory ? 'Folder' : 'File'} ${item.name}`}
-      className={`group grid items-center gap-2 px-2 sm:px-3 h-11 border-b border-line/60
-                  cursor-pointer transition-colors
-                  grid-cols-[28px_1fr_auto_auto_36px]
-                  ${selected ? 'bg-accent/10' : 'hover:bg-surface'}
-                  ${cut ? 'opacity-50' : ''}`}
+      className={`group grid items-center gap-3 px-2 sm:px-3 h-9 max-md:h-11
+                  cursor-pointer transition-colors relative
+                  grid-cols-[24px_1fr_auto_auto_32px]
+                  ${selected
+                    ? 'bg-accent/[0.12] text-ink'
+                    : 'hover:bg-white/[0.04]'}
+                  ${cut ? 'opacity-45' : ''}`}
     >
+      {/* Selected rows get an edge bar rather than a border box. */}
+      {selected && (
+        <span className="absolute left-0 top-0 h-full w-0.5 bg-accent" aria-hidden="true" />
+      )}
+
       <span
         role="checkbox"
         aria-checked={selected}
         tabIndex={-1}
         onClick={e => { e.stopPropagation(); onToggle(item, e); }}
-        className={`w-5 h-5 rounded border flex items-center justify-center transition-colors mx-auto
-                    ${selected ? 'bg-accent border-accent' : 'border-line-strong hover:border-accent'}`}
+        className={`w-4 h-4 rounded-chip border flex items-center justify-center transition-colors mx-auto
+                    ${selected
+                      ? 'bg-accent border-accent'
+                      : 'border-line-strong hover:border-accent opacity-0 group-hover:opacity-100 focus:opacity-100 max-md:opacity-100'}`}
       >
         {selected && <Check className="w-3 h-3 text-canvas" aria-hidden="true" />}
       </span>
 
       <span className="flex items-center gap-2 min-w-0">
         <Icon
-          className={`w-4 h-4 shrink-0 ${item.isDirectory ? 'text-accent' : color}`}
+          strokeWidth={1.5}
+          className={`w-4 h-4 shrink-0 ${item.isDirectory ? 'text-accent' : 'text-muted/70'}`}
           aria-hidden="true"
         />
         <span className="text-body text-ink truncate">{item.name}</span>
       </span>
 
-      <span className="text-meta text-muted tabular text-right w-20 hidden sm:block">
+      {/* Machine data: mono, tabular, right-aligned so columns actually line up. */}
+      <span className="text-meta text-muted font-mono tabular text-right w-20 hidden sm:block">
         {item.isDirectory ? '—' : formatBytes(item.size)}
       </span>
 
-      <span className="text-meta text-muted tabular text-right w-28 hidden lg:block">
+      <span className="text-meta text-muted font-mono tabular text-right w-28 hidden lg:block">
         {formatDate(item.modified)}
       </span>
 
@@ -122,9 +133,11 @@ export const FileRow = React.memo(function FileRow({
         type="button"
         onClick={openMenu}
         aria-label={`Actions for ${item.name}`}
-        className="btn-icon !w-8 !h-8 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
+        className="w-7 h-7 rounded-control flex items-center justify-center
+                   text-muted hover:text-ink hover:bg-raised transition-colors
+                   md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
       >
-        <span className="text-lg leading-none text-muted" aria-hidden="true">⋯</span>
+        <MoreHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
       </button>
     </div>
   );

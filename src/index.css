@@ -220,15 +220,22 @@ select {
            text-body font-medium rounded-control
            transition-colors duration-150 whitespace-nowrap
            disabled:opacity-40 disabled:pointer-events-none;
+    letter-spacing: -0.01em;
+    font-weight: 550;
   }
 
+  /* Filled controls get a top highlight and a real pressed state, so they
+   * read as objects rather than coloured rectangles. */
   .btn-primary {
-    @apply bg-accent text-canvas hover:bg-accent-hover font-semibold;
+    @apply bg-accent text-canvas hover:bg-accent-hover shadow-btn
+           active:translate-y-[0.5px] active:shadow-none;
   }
 
+  /* Toolbar default: ghost, not bordered. A row where every button has a
+   * border and a fill reads like a keyboard. */
   .btn-quiet {
-    @apply bg-raised text-ink border border-line
-           hover:border-line-strong hover:bg-line/60;
+    @apply bg-transparent text-ink border border-transparent
+           hover:bg-raised hover:border-line;
   }
 
   .btn-ghost {
@@ -237,7 +244,8 @@ select {
 
   .btn-danger {
     @apply bg-danger/10 text-danger border border-danger/25
-           hover:bg-danger/20 hover:border-danger/40;
+           hover:bg-danger/20 hover:border-danger/40
+           active:translate-y-[0.5px];
   }
 
   .btn-sm {
@@ -252,17 +260,20 @@ select {
            max-md:w-11 max-md:h-11;
   }
 
-  /* Inputs ------------------------------------------------------- */
+  /* Inputs -------------------------------------------------------
+   * Rest state is a quiet fill, not a saturated border. A coloured
+   * outline on an unfocused empty field reads as an error, and it was
+   * louder than the primary button next to it. Focus adds the accent. */
   .field {
-    @apply w-full h-9 px-3 bg-canvas border border-line rounded-control
+    @apply w-full h-9 px-3 bg-canvas border border-line/70 rounded-control
            text-body text-ink placeholder-muted
-           focus:outline-none focus:border-accent
+           focus:outline-none focus:border-accent focus:shadow-ring-accent
            transition-colors duration-150;
   }
 
   /* Status pill: colour plus text, never colour alone ------------ */
   .pill {
-    @apply inline-flex items-center gap-1.5 px-2 h-6 rounded-full
+    @apply inline-flex items-center gap-1.5 px-2 h-6 rounded-chip
            text-label font-medium border;
   }
 

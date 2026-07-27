@@ -63,10 +63,19 @@ export default {
         'metric': ['1.75rem', { lineHeight: '2rem', letterSpacing: '-0.03em' }]
       },
       borderRadius: {
-        // One radius language: 6 controls / 10 cards / 14 modals.
+        // A real radius scale, not one token applied to everything.
+        // chip < control < card < modal. When every element shares one
+        // radius, nothing reads as intentional.
+        'chip': '4px',
         'control': '6px',
         'card': '10px',
         'modal': '14px'
+      },
+      boxShadow: {
+        // Top highlight on filled controls: the cheapest cue that a button
+        // is a pressable object rather than a coloured div.
+        'btn': 'inset 0 1px 0 rgba(255,255,255,0.14)',
+        'ring-accent': '0 0 0 3px rgba(20,184,166,0.15)'
       }
     }
   },

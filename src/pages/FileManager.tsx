@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import {
-  ArrowLeft, ArrowUpDown, ChevronRight, ClipboardPaste, Copy, Download, Edit2,
-  Eye, EyeOff, FilePlus, FolderPlus, Grid3x3, Home, List, MoreHorizontal,
-  RefreshCw, Scissors, Search, Trash2, Upload, X, Zap,
+  ArrowLeft, ArrowUpDown, ChevronDown, ChevronRight, ClipboardPaste, Copy,
+  CornerDownRight, Download, Edit2, Eye, EyeOff, FilePlus, FolderPlus, Grid3x3,
+  Home, List, MoreHorizontal, PencilLine, Plus, RefreshCw, Scissors, Search,
+  Trash2, Upload, X, Zap,
 } from 'lucide-react';
 import { apiGet, apiPost, apiDelete, downloadFile, uploadFiles } from '../lib/api';
 import { classifyFile, isEditable, KIND_LABEL } from '../lib/fileTypes';
@@ -24,7 +25,14 @@ function OverlayFallback() {
 }
 
 const ALLOWED_BASES = ['/root', '/var/www', '/home', '/opt', '/tmp'];
-const OPENCLAW_PATH = '/home/ubuntu/.openclaw';
+
+interface OpenclawDir {
+  path: string;
+  workspace: string | null;
+  markers: string[];
+  entries: number;
+  stub: boolean;
+}
 
 type SortKey = 'name' | 'size' | 'modified' | 'type';
 type SortDir = 'asc' | 'desc';
@@ -62,6 +70,20 @@ export default function FileManager() {
 
   const [menu, setMenu] = useState<{ item: FileItem; x: number; y: number } | null>(null);
   const [overflow, setOverflow] = useState(false);
+
+  // Windows-style editable address bar. The breadcrumb is the default view;
+  // clicking it (or Ctrl+L) swaps in a real input you can paste a path into.
+  const [editingPath, setEditingPath] = useState(false);
+  const [pathDraft, setPathDraft] = useState('');
+  const pathInputRef = useRef<HTMLInputElement>(null);
+
+  // OpenClaw workspaces are detected server-side, not hard-coded — the agent
+  // does not always live under /home/ubuntu.
+  const [ocDirs, setOcDirs] = useState<OpenclawDir[] | null>(null);
+  const [ocOpen, setOcOpen] = useState(false);
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const [creating, setCreating] = useState<'file' | 'folder' | null>(null);
   const [createName, setCreateName] = useState('');
   const [renaming, setRenaming] = useState<FileItem | null>(null);
@@ -345,13 +367,45 @@ export default function FileManager() {
     return () => window.removeEventListener('keydown', onKey);
   }, [editing, previewing, search, selected, visible, clipboard, paste, remove, goBack, load, toast]);
 
-  const inOpenclaw = currentPath.startsWith(OPENCLAW_PATH);
+  const inOpenclaw = !!ocDirs?.some(d => currentPath.startsWith(d.path));
   const parts = currentPath.split('/').filter(Boolean);
+
+  // Detect OpenClaw workspaces once per session.
+  useEffect(() => {
+    apiGet<{ dirs: OpenclawDir[] }>('/api/files/openclaw')
+      .then(d => setOcDirs(d.dirs || []))
+      .catch(() => setOcDirs([]));
+  }, []);
+
+  const beginEditPath = useCallback(() => {
+    setPathDraft(currentPath);
+    setEditingPath(true);
+    requestAnimationFrame(() => {
+      pathInputRef.current?.focus();
+      pathInputRef.current?.select();
+    });
+  }, [currentPath]);
+
+  const commitPath = useCallback(() => {
+    const raw = pathDraft.trim();
+    setEditingPath(false);
+    if (!raw || raw === currentPath) return;
+    // Accept pasted paths with a trailing slash or stray whitespace.
+    const clean = raw.replace(/\/+$/, '') || '/';
+    navigate(clean);
+  }, [pathDraft, currentPath, navigate]);
+
+  const openOpenclaw = useCallback((dir: OpenclawDir) => {
+    setShowHidden(true);
+    navigate(dir.workspace || dir.path);
+    setOcOpen(false);
+    setOverflow(false);
+  }, [navigate]);
 
   return (
     <div
       className="flex flex-col min-h-0 h-full max-lg:h-[calc(100dvh-3.5rem)]"
-      onClick={() => { setMenu(null); setOverflow(false); }}
+      onClick={() => { setMenu(null); setOverflow(false); setNewOpen(false); setSortOpen(false); setJumpOpen(false); setOcOpen(false); }}
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={e => {
         if (e.currentTarget === e.target) setDragOver(false);
@@ -377,14 +431,42 @@ export default function FileManager() {
             <Home className="w-4 h-4" aria-hidden="true" />
           </button>
 
-          {/* Breadcrumb — the single source of location truth. The old page
-              had three competing path indicators.
-              Note: no dir="rtl" scroll trick here. It kept long paths
-              end-visible but shoved short ones to the far right, where
-              "root" read as a username rather than the current folder. */}
+          {/* Address bar.
+           *
+           * Breadcrumb by default; click it (or Ctrl+L) to get a real editable
+           * path input you can paste into, Windows Explorer style. */}
+          {editingPath ? (
+            <div className="flex-1 min-w-0 flex items-center gap-1.5">
+              <input
+                ref={pathInputRef}
+                value={pathDraft}
+                onChange={e => setPathDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); commitPath(); }
+                  if (e.key === 'Escape') { e.preventDefault(); setEditingPath(false); }
+                }}
+                onBlur={commitPath}
+                spellCheck={false}
+                autoComplete="off"
+                aria-label="Folder path"
+                placeholder="/var/www/example.com"
+                className="field !h-9 font-mono text-meta flex-1 min-w-0"
+              />
+              <button
+                className="btn-icon !w-8 !h-8 shrink-0"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => setEditingPath(false)}
+                aria-label="Cancel path edit"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+          ) : (
           <nav
             aria-label="Breadcrumb"
-            className="flex-1 min-w-0 flex items-center gap-0.5 overflow-x-auto scrollbar-none"
+            className="group flex-1 min-w-0 flex items-center gap-0.5 overflow-x-auto scrollbar-none
+                       rounded-control hover:bg-raised/50 transition-colors"
+            onDoubleClick={beginEditPath}
           >
             <span className="flex items-center gap-0.5">
               {/* Explicit filesystem root, so a one-segment path like /root
@@ -418,7 +500,19 @@ export default function FileManager() {
                 );
               })}
             </span>
+
+            <button
+              onClick={beginEditPath}
+              aria-label="Edit path"
+              title="Edit path (Ctrl+L)"
+              className="ml-1 shrink-0 px-1.5 h-7 rounded-control text-label text-subtle
+                         hover:text-accent hover:bg-raised transition-colors
+                         md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
+            >
+              <PencilLine className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
           </nav>
+          )}
 
           <div className="relative hidden sm:block">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" aria-hidden="true" />
@@ -458,23 +552,43 @@ export default function FileManager() {
          * the targets were under the 44px floor.
          */}
         <div className="flex items-center gap-1.5 px-2 sm:px-3 h-12 sm:h-11 border-t border-line/60">
+          {/* Actions cluster. One filled primary (Upload) and a single New
+           * split button. Previously "New folder" and "New file" each burned
+           * a top-level slot on the same verb, and every control had equal
+           * weight — so nothing read as primary. */}
+          <div className="relative shrink-0">
+            <button
+              className="btn btn-quiet btn-sm max-sm:!h-11 max-sm:!px-3"
+              onClick={e => { e.stopPropagation(); setNewOpen(o => !o); setSortOpen(false); setJumpOpen(false); setOcOpen(false); }}
+              aria-expanded={newOpen}
+              aria-haspopup="menu"
+            >
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              <span>New</span>
+              <ChevronDown className="w-3 h-3 opacity-50" aria-hidden="true" />
+            </button>
+            {newOpen && (
+              <div
+                className="absolute left-0 top-10 z-40 w-44 card shadow-2xl py-1 animate-slide-up"
+                onClick={e => e.stopPropagation()}
+                role="menu"
+              >
+                <SheetItem
+                  icon={FolderPlus}
+                  label="Folder"
+                  onClick={() => { setCreating('folder'); setCreateName(''); setNewOpen(false); }}
+                />
+                <SheetItem
+                  icon={FilePlus}
+                  label="File"
+                  onClick={() => { setCreating('file'); setCreateName(''); setNewOpen(false); }}
+                />
+              </div>
+            )}
+          </div>
+
           <button
-            className="btn btn-quiet btn-sm shrink-0 max-sm:!h-11 max-sm:!px-3"
-            onClick={() => { setCreating('folder'); setCreateName(''); }}
-          >
-            <FolderPlus className="w-4 h-4" aria-hidden="true" />
-            <span className="hidden sm:inline">New folder</span>
-            <span className="sm:hidden">New</span>
-          </button>
-          <button
-            className="btn btn-quiet btn-sm shrink-0 hidden sm:inline-flex"
-            onClick={() => { setCreating('file'); setCreateName(''); }}
-          >
-            <FilePlus className="w-4 h-4" aria-hidden="true" />
-            <span>New file</span>
-          </button>
-          <button
-            className="btn btn-quiet btn-sm shrink-0 max-sm:!h-11 max-sm:!px-3"
+            className="btn btn-primary btn-sm shrink-0 max-sm:!h-11 max-sm:!px-3"
             onClick={() => uploadRef.current?.click()}
           >
             <Upload className="w-4 h-4" aria-hidden="true" />
@@ -492,43 +606,184 @@ export default function FileManager() {
             </button>
           )}
 
-          {/* Secondary controls: inline on desktop, overflow sheet on mobile */}
-          <span className="hidden sm:flex items-center gap-1">
-            <span className="w-px h-5 bg-line mx-1" aria-hidden="true" />
+          {/* Secondary controls: view state, visually distinct from actions.
+           * These were text buttons identical in weight to New/Upload, so
+           * actions and state read as the same thing. Now: segmented view
+           * control, icon toggle, and a value-only sort dropdown. */}
+          <span className="hidden sm:flex items-center gap-1.5">
+            <span className="w-px h-5 bg-line mx-1.5" aria-hidden="true" />
+
+            <span
+              className="inline-flex items-center p-0.5 rounded-control bg-raised/70 border border-line/70"
+              role="group"
+              aria-label="View mode"
+            >
+              {(['list', 'grid'] as ViewMode[]).map(v => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  aria-pressed={view === v}
+                  aria-label={`${v} view`}
+                  title={`${v} view`}
+                  className={`w-7 h-7 rounded-chip flex items-center justify-center transition-colors
+                              ${view === v
+                                ? 'bg-accent/15 text-accent'
+                                : 'text-muted hover:text-ink'}`}
+                >
+                  {v === 'list'
+                    ? <List className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+                    : <Grid3x3 className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />}
+                </button>
+              ))}
+            </span>
+
             <button
-              className={`btn btn-quiet btn-sm ${showHidden ? '!text-accent !border-accent/40' : ''}`}
+              className={`btn btn-sm !font-normal ${showHidden
+                            ? '!text-accent !bg-accent/10 !border-accent/30'
+                            : 'btn-quiet'}`}
               onClick={() => setShowHidden(h => !h)}
               aria-pressed={showHidden}
+              aria-label={showHidden ? 'Hide hidden files' : 'Show hidden files'}
+              title={showHidden ? 'Hidden files are shown' : 'Hidden files are not shown'}
             >
-              {showHidden ? <Eye className="w-4 h-4" aria-hidden="true" /> : <EyeOff className="w-4 h-4" aria-hidden="true" />}
-              <span className="hidden lg:inline">Hidden: {showHidden ? 'on' : 'off'}</span>
+              {showHidden
+                ? <Eye className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+                : <EyeOff className="w-4 h-4 text-muted" strokeWidth={1.5} aria-hidden="true" />}
+              <span className="hidden lg:inline">Hidden</span>
             </button>
-            <button
-              className="btn btn-quiet btn-sm"
-              onClick={() => setView(v => (v === 'list' ? 'grid' : 'list'))}
-            >
-              {view === 'list' ? <Grid3x3 className="w-4 h-4" aria-hidden="true" /> : <List className="w-4 h-4" aria-hidden="true" />}
-              <span className="hidden lg:inline">View: {view}</span>
-            </button>
-            <button
-              className="btn btn-quiet btn-sm"
-              onClick={() => toggleSort(sortKey === 'name' ? 'modified' : 'name')}
-              title={`Sorted by ${sortKey} (${sortDir})`}
-            >
-              <ArrowUpDown className="w-4 h-4" aria-hidden="true" />
-              <span className="hidden lg:inline">Sort: {sortKey}</span>
-            </button>
-            <button
-              className={`btn btn-sm ${inOpenclaw ? 'btn-primary' : 'btn-quiet'}`}
-              title="Jump to the OpenClaw agent workspace"
-              onClick={() => {
-                if (inOpenclaw) navigate('/home');
-                else { setShowHidden(true); navigate(OPENCLAW_PATH); }
-              }}
-            >
-              <Zap className="w-4 h-4" aria-hidden="true" />
-              <span className="hidden lg:inline">OpenClaw</span>
-            </button>
+
+            <div className="relative">
+              <button
+                className="btn btn-quiet btn-sm !font-normal"
+                onClick={e => { e.stopPropagation(); setSortOpen(o => !o); setNewOpen(false); setJumpOpen(false); setOcOpen(false); }}
+                aria-expanded={sortOpen}
+                aria-haspopup="menu"
+                title="Sort order"
+              >
+                <ArrowUpDown className="w-4 h-4 text-muted" strokeWidth={1.5} aria-hidden="true" />
+                <span className="hidden lg:inline capitalize">
+                  {sortKey} {sortDir === 'asc' ? '↑' : '↓'}
+                </span>
+              </button>
+              {sortOpen && (
+                <div
+                  className="absolute right-0 top-10 z-40 w-44 card shadow-2xl py-1 animate-slide-up"
+                  onClick={e => e.stopPropagation()}
+                  role="menu"
+                >
+                  {(['name', 'size', 'modified', 'type'] as SortKey[]).map(k => (
+                    <SheetItem
+                      key={k}
+                      icon={ArrowUpDown}
+                      active={sortKey === k}
+                      label={`${k[0].toUpperCase()}${k.slice(1)}${sortKey === k ? (sortDir === 'asc' ? '  ↑' : '  ↓') : ''}`}
+                      onClick={() => { toggleSort(k); setSortOpen(false); }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <span className="w-px h-5 bg-line mx-1.5" aria-hidden="true" />
+
+            {/* Jump to — desktop equivalent of the mobile sheet's base picker.
+                This was missing entirely on desktop. */}
+            <div className="relative">
+              <button
+                className="btn btn-quiet btn-sm !font-normal"
+                onClick={e => { e.stopPropagation(); setJumpOpen(o => !o); setOcOpen(false); setSortOpen(false); setNewOpen(false); }}
+                aria-expanded={jumpOpen}
+                aria-haspopup="menu"
+              >
+                <CornerDownRight className="w-4 h-4 text-muted" strokeWidth={1.5} aria-hidden="true" />
+                <span className="hidden lg:inline">Jump to</span>
+                <ChevronDown className="w-3 h-3 opacity-50" aria-hidden="true" />
+              </button>
+
+              {jumpOpen && (
+                <div
+                  className="absolute left-0 top-10 z-40 w-52 card shadow-2xl py-1 animate-slide-up"
+                  onClick={e => e.stopPropagation()}
+                  role="menu"
+                >
+                  <p className="px-3 py-1.5 eyebrow border-b border-line mb-1">Base folders</p>
+                  {ALLOWED_BASES.map(b => (
+                    <SheetItem
+                      key={b}
+                      icon={FolderPlus}
+                      label={b}
+                      mono
+                      active={baseOf(currentPath) === b}
+                      onClick={() => { navigate(b); setJumpOpen(false); }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* OpenClaw — detected, not hard-coded. One install goes straight
+                there; several give a picker. */}
+            <div className="relative">
+              <button
+                className={`btn btn-sm !font-normal ${inOpenclaw ? '!text-accent !bg-accent/10' : 'btn-quiet'}`}
+                title="Open a detected OpenClaw agent workspace"
+                disabled={ocDirs !== null && ocDirs.length === 0}
+                onClick={e => {
+                  e.stopPropagation();
+                  if (!ocDirs?.length) return;
+                  if (ocDirs.length === 1) openOpenclaw(ocDirs[0]);
+                  else { setOcOpen(o => !o); setJumpOpen(false); setSortOpen(false); setNewOpen(false); }
+                }}
+                aria-expanded={ocOpen}
+              >
+                <Zap className={`w-4 h-4 ${inOpenclaw ? '' : 'text-muted'}`} strokeWidth={1.5} aria-hidden="true" />
+                <span className="hidden lg:inline">
+                  {ocDirs === null ? 'Workspace…' : ocDirs.length === 0 ? 'No workspace' : 'AI workspace'}
+                </span>
+                {!!ocDirs && ocDirs.length > 1 && (
+                  <ChevronDown className="w-3 h-3 opacity-50" aria-hidden="true" />
+                )}
+              </button>
+
+              {ocOpen && !!ocDirs?.length && (
+                <div
+                  className="absolute right-0 top-10 z-40 w-72 card shadow-2xl py-1 animate-slide-up"
+                  onClick={e => e.stopPropagation()}
+                  role="menu"
+                >
+                  <p className="px-3 py-1.5 eyebrow border-b border-line mb-1">
+                    Detected workspaces
+                  </p>
+                  {ocDirs.map(d => (
+                    <button
+                      key={d.path}
+                      role="menuitem"
+                      onClick={() => openOpenclaw(d)}
+                      className="w-full text-left px-3 py-2 hover:bg-raised transition-colors"
+                    >
+                      <span className="block text-meta text-ink font-mono truncate">
+                        {d.workspace || d.path}
+                      </span>
+                      <span className="block text-label text-muted mt-0.5">
+                        {d.stub
+                          ? 'state only · no workspace'
+                          : `${d.markers.slice(0, 3).join(', ')} · ${d.entries} entries`}
+                      </span>
+                    </button>
+                  ))}
+                  {inOpenclaw && (
+                    <>
+                      <div className="border-t border-line my-1" />
+                      <SheetItem
+                        icon={ArrowLeft}
+                        label="Leave workspace"
+                        onClick={() => { navigate('/home'); setOcOpen(false); }}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </span>
 
           <div className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -599,15 +854,27 @@ export default function FileManager() {
                     onClick={() => { toggleSort(sortKey === 'name' ? 'modified' : 'name'); setOverflow(false); }}
                   />
                   <div className="border-t border-line my-1" />
-                  <SheetItem
-                    icon={Zap}
-                    label={inOpenclaw ? 'Leave OpenClaw' : 'OpenClaw workspace'}
-                    onClick={() => {
-                      if (inOpenclaw) navigate('/home');
-                      else { setShowHidden(true); navigate(OPENCLAW_PATH); }
-                      setOverflow(false);
-                    }}
-                  />
+                  {ocDirs === null ? (
+                    <p className="px-3 py-2 text-meta text-muted">Looking for OpenClaw…</p>
+                  ) : ocDirs.length === 0 ? (
+                    <p className="px-3 py-2 text-meta text-muted">No OpenClaw install found</p>
+                  ) : inOpenclaw ? (
+                    <SheetItem
+                      icon={ArrowLeft}
+                      label="Leave workspace"
+                      onClick={() => { navigate('/home'); setOverflow(false); }}
+                    />
+                  ) : (
+                    ocDirs.map(d => (
+                      <SheetItem
+                        key={d.path}
+                        icon={Zap}
+                        mono
+                        label={d.stub ? `${d.path} (state only)` : (d.workspace || d.path)}
+                        onClick={() => openOpenclaw(d)}
+                      />
+                    ))
+                  )}
                   <div className="px-3 py-2">
                     <label htmlFor="base-jump" className="eyebrow block mb-1.5">Jump to</label>
                     <select
@@ -922,18 +1189,19 @@ function SortHeader({ label, active, dir, onClick, align = 'left', width = '' }:
   );
 }
 
-function SheetItem({ icon: Icon, label, onClick }: {
-  icon: any; label: string; onClick: () => void;
+function SheetItem({ icon: Icon, label, onClick, mono, active }: {
+  icon: any; label: string; onClick: () => void; mono?: boolean; active?: boolean;
 }) {
   return (
     <button
       role="menuitem"
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 h-11 text-body text-ink
-                 hover:bg-raised transition-colors text-left"
+      className={`w-full flex items-center gap-3 px-3 h-11 text-body
+                 hover:bg-raised transition-colors text-left
+                 ${active ? 'text-accent' : 'text-ink'}`}
     >
-      <Icon className="w-4 h-4 text-muted shrink-0" aria-hidden="true" />
-      <span className="truncate">{label}</span>
+      <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-accent' : 'text-muted'}`} aria-hidden="true" />
+      <span className={`truncate ${mono ? 'font-mono text-meta' : ''}`}>{label}</span>
     </button>
   );
 }
