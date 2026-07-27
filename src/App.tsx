@@ -4,6 +4,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import { disconnectSocket } from './lib/socket';
+import { ToastProvider } from './lib/toast';
 
 // Route-level code splitting: each page (and its heavy deps - Monaco, xterm,
 // recharts) is fetched on demand instead of shipping in the initial bundle.
@@ -115,13 +116,16 @@ function App() {
   if (!token || !verified) {
     return (
       <ErrorBoundary>
-        <Login onLogin={handleLogin} />
+        <ToastProvider>
+          <Login onLogin={handleLogin} />
+        </ToastProvider>
       </ErrorBoundary>
     );
   }
 
   return (
     <ErrorBoundary>
+      <ToastProvider>
       <BrowserRouter>
         <Layout onLogout={handleLogout}>
           <Suspense fallback={<RouteFallback />}>
@@ -137,6 +141,7 @@ function App() {
           </Suspense>
         </Layout>
       </BrowserRouter>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }

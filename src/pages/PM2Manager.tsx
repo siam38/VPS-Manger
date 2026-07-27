@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { apiGet, apiPost } from '../lib/api';
 import { getSocket } from '../lib/socket';
+import { useToast } from '../lib/toast';
 import { formatBytes } from '../lib/utils';
 import {
   Play, Square, RotateCcw, Trash2, Plus, RefreshCw, X,
@@ -803,6 +804,7 @@ function NewAppWizard({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
 // ─── App Detail Modal ───
 function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClose: () => void; onAction: () => void }) {
+  const toast = useToast();
   const [detail, setDetail] = useState<AppDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEnv, setShowEnv] = useState(false);
@@ -832,7 +834,7 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
       const data = await apiGet<AppDetail>(`/api/pm2/app-detail/${encodeURIComponent(appName)}`);
       setDetail(data);
     } catch (e: any) {
-      alert(e.message);
+      toast.error({ title: `Could not ${action} ${appName}`, description: e.message });
     }
     setActionLoading('');
   };
@@ -997,9 +999,15 @@ function AppDetailModal({ appName, onClose, onAction }: { appName: string; onClo
                 ].map(btn => (
                   <button
                     key={btn.action}
-                    onClick={() => {
+                    onClick={async () => {
                       if (btn.action === 'delete') {
-                        if (!confirm(`Delete ${appName}?`)) return;
+                        const ok = await toast.confirm({
+                          title: `Delete ${appName}?`,
+                          description: 'The app is removed from PM2. Its files stay on disk.',
+                          confirmLabel: 'Delete',
+                          danger: true,
+                        });
+                        if (!ok) return;
                         doDetailAction('delete', { name_or_id: appName }).then(() => onClose());
                       } else {
                         doDetailAction(btn.action, { name_or_id: appName });
@@ -1040,6 +1048,7 @@ export default function PM2Manager() {
   const [logLevelFilter, setLogLevelFilter] = useState<string>('all');
   const [detailApp, setDetailApp] = useState<string | null>(null);
   const [globalActionLoading, setGlobalActionLoading] = useState('');
+  const notify = useToast();
   const [toast, setToast] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef(getSocket());
@@ -1120,7 +1129,9 @@ export default function PM2Manager() {
     try {
       await apiPost(`/api/pm2/${action}`, { name_or_id: name });
       setTimeout(load, 1000);
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) {
+      notify.error({ title: `Could not ${action} ${name}`, description: e.message });
+    }
   };
 
   const doGlobalAction = async (action: string) => {
@@ -1130,7 +1141,7 @@ export default function PM2Manager() {
       showToast(res.message || `${action} completed`);
       if (action === 'resurrect') setTimeout(load, 1500);
     } catch (e: any) {
-      alert(e.message);
+      notify.error({ title: `${action} failed`, description: e.message });
     }
     setGlobalActionLoading('');
   };
@@ -1416,7 +1427,15 @@ export default function PM2Manager() {
                   className="p-1.5 rounded-lg text-muted hover:text-blue-400 hover:bg-blue-400/10 transition" title="Restart">
                   <RotateCcw className="w-4 h-4" />
                 </button>
-                <button onClick={() => { if (confirm(`Delete ${app.name}?`)) doAction('delete', app.name); }}
+                <button onClick={async () => {
+                  const ok = await notify.confirm({
+                    title: `Delete ${app.name}?`,
+                    description: 'The app is removed from PM2. Its files stay on disk.',
+                    confirmLabel: 'Delete',
+                    danger: true,
+                  });
+                  if (ok) doAction('delete', app.name);
+                }}
                   className="p-1.5 rounded-lg text-muted hover:text-red-400 hover:bg-red-400/10 transition" title="Delete">
                   <Trash2 className="w-4 h-4" />
                 </button>

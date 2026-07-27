@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useToast } from '../lib/toast';
 import { GitBranch, RefreshCw, Download, Upload, Eye, Undo2, Save, GitCommitHorizontal, Activity, FolderGit2, X, Key, User, Mail, Wifi, WifiOff, ExternalLink, Copy, CheckCircle, XCircle, Settings, Unlink, ArrowRight, Github, Loader2, ShieldCheck, AlertTriangle, Archive, ArchiveRestore, GitCompare, DownloadCloud, Info, GitBranchPlus, Tag, Trash2 } from 'lucide-react';
 
 const api = async (endpoint: string, options: RequestInit = {}) => {
@@ -24,6 +25,7 @@ interface GHStatus {
 const defaultSync: SyncConf = { enabled: false, intervalSeconds: 30, autoPush: true, autoPull: true, autoResolveConflicts: true, commitMessage: 'auto-sync: {timestamp}', pm2App: '' };
 
 export default function GitSync() {
+  const notify = useToast();
   // GitHub setup state
   const [ghStatus, setGhStatus] = useState<GHStatus | null>(null);
   const [ghLoading, setGhLoading] = useState(true);
@@ -145,7 +147,13 @@ export default function GitSync() {
   };
 
   const disconnect = async () => {
-    if (!confirm('This will remove your SSH keys and git config. Are you sure?')) return;
+    const ok = await notify.confirm({
+      title: 'Disconnect GitHub?',
+      description: 'This removes your SSH keys and git config from this server.',
+      confirmLabel: 'Disconnect',
+      danger: true,
+    });
+    if (!ok) return;
     const r = await api('/github/disconnect', { method: 'POST' });
     if (r.success) { showToast('Disconnected', 'success'); setSettingsOpen(false); checkGHStatus(); }
     else showToast('Failed: ' + r.error, 'error');
@@ -251,7 +259,18 @@ export default function GitSync() {
   const pull = async () => { showToast('Pulling...', 'info'); const r = await api('/pull', { method: 'POST', body: JSON.stringify({ repo: selected }) }); if (r.error) { showToast('Pull failed: ' + r.error, 'error'); return; } showToast('Pulled!', 'success'); selectRepo(selected!); };
   const push = async () => { showToast('Pushing...', 'info'); const r = await api('/push', { method: 'POST', body: JSON.stringify({ repo: selected }) }); if (r.error) { showToast('Push failed: ' + r.error, 'error'); return; } showToast('Pushed!', 'success'); selectRepo(selected!); };
   const viewDiff = async (file: string) => { const d = await api(`/diff?repo=${encodeURIComponent(selected!)}&file=${encodeURIComponent(file)}`); setDiffModal({ file, diff: d.diff || 'No changes' }); };
-  const discardFile = async (file: string) => { if (!confirm(`Discard changes to ${file}?`)) return; await api('/discard', { method: 'POST', body: JSON.stringify({ repo: selected, file }) }); showToast('Discarded', 'success'); refreshStatus(); };
+  const discardFile = async (file: string) => {
+    const ok = await notify.confirm({
+      title: `Discard changes to ${file}?`,
+      description: 'Your edits to this file are lost permanently.',
+      confirmLabel: 'Discard',
+      danger: true,
+    });
+    if (!ok) return;
+    await api('/discard', { method: 'POST', body: JSON.stringify({ repo: selected, file }) });
+    showToast('Discarded', 'success');
+    refreshStatus();
+  };
   const switchBranch = async (br: string) => { const r = await api('/checkout', { method: 'POST', body: JSON.stringify({ repo: selected, branch: br }) }); if (r.error) { showToast('Switch failed: ' + r.error, 'error'); return; } showToast(`Switched to ${br}`, 'success'); selectRepo(selected!); };
   const saveSyncSettings = async (conf?: SyncConf) => { const c = conf || syncConf; const r = await api('/sync/config', { method: 'POST', body: JSON.stringify({ repo: selected, ...c }) }); if (r.error) { showToast('Save failed: ' + r.error, 'error'); return; } showToast(c.enabled ? 'Auto-sync enabled!' : 'Auto-sync disabled!', 'success'); loadRepos(); };
 
@@ -280,14 +299,25 @@ export default function GitSync() {
 
   const handleDeleteBranch = async (branchName: string) => {
     if (branchName === branch) return showToast("Can't delete current branch", 'error');
-    if (!confirm(`Delete branch ${branchName}?`)) return;
+    const ok = await notify.confirm({
+      title: `Delete branch ${branchName}?`,
+      description: 'Unmerged commits on this branch may become unreachable.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     const r = await api('/branch/delete', { method: 'POST', body: JSON.stringify({ repo: selected, name: branchName }) });
     if (r.success) { showToast(`Deleted branch ${branchName}`, 'success'); loadBranches(); }
   };
 
   const handleSwitchBranch = async (branchName: string) => {
     if (branchName === branch) return;
-    if (!confirm(`Switch to branch ${branchName}? Uncommitted changes may be lost.`)) return;
+    const ok = await notify.confirm({
+      title: `Switch to ${branchName}?`,
+      description: 'Uncommitted changes may be lost.',
+      confirmLabel: 'Switch',
+    });
+    if (!ok) return;
     const r = await api('/branch/checkout', { method: 'POST', body: JSON.stringify({ repo: selected, branch: branchName }) });
     if (r.success) { showToast(`Switched to ${branchName}`, 'success'); loadBranches(); refreshStatus(); }
   };
@@ -305,7 +335,12 @@ export default function GitSync() {
   };
 
   const handleDeleteTag = async (tagName: string) => {
-    if (!confirm(`Delete tag ${tagName}?`)) return;
+    const ok = await notify.confirm({
+      title: `Delete tag ${tagName}?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     const r = await api('/tag', { method: 'DELETE', body: JSON.stringify({ repo: selected, name: tagName }) });
     if (r.success) { showToast(`Deleted tag ${tagName}`, 'success'); loadTags(); }
   };

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiGet, apiPost } from '../lib/api';
+import { useToast } from '../lib/toast';
 import { Search, RefreshCw, Skull, ArrowUpDown, ChevronUp, ChevronDown, AlertTriangle, X } from 'lucide-react';
 
 interface Process {
@@ -14,6 +15,7 @@ type SortKey = 'cpu' | 'memory' | 'pid' | 'command';
 type SortDir = 'asc' | 'desc';
 
 export default function Processes() {
+  const toast = useToast();
   const [processes, setProcesses] = useState<Process[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -60,9 +62,12 @@ export default function Processes() {
   const handleKill = async (pid: number, signal: string) => {
     try {
       await apiPost('/api/processes/kill', { pid, signal });
+      toast.success({ title: `Sent ${signal} to PID ${pid}`, duration: 2500 });
       setKillDialog(null);
       setTimeout(load, 500);
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) {
+      toast.error({ title: 'Could not signal process', description: e.message });
+    }
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { apiGet, apiPost } from '../lib/api';
 import { getSocket } from '../lib/socket';
+import { useToast } from '../lib/toast';
 import { formatBytes, formatUptime } from '../lib/utils';
 import {
   Cpu, MemoryStick, HardDrive, Clock, X, RotateCcw, Trash2,
@@ -43,6 +44,7 @@ const BAR = { ok: 'bg-accent', warn: 'bg-warning', bad: 'bg-danger' };
 const TEXT = { ok: 'text-ink', warn: 'text-warning', bad: 'text-danger' };
 
 export default function Dashboard() {
+  const toast = useToast();
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [cpuHistory, setCpuHistory] = useState<number[]>([]);
@@ -74,7 +76,15 @@ export default function Dashboard() {
   }, []);
 
   const doAction = async (action: string, label: string, danger = false) => {
-    if (danger && !confirm(`${label}? This may interrupt running services.`)) return;
+    if (danger) {
+      const ok = await toast.confirm({
+        title: `${label}?`,
+        description: 'This may interrupt running services on this machine.',
+        confirmLabel: 'Run it',
+        danger: true,
+      });
+      if (!ok) return;
+    }
     setActionLoading(action);
     try {
       const res = await apiPost<{ success: boolean; message: string; output?: string }>(
