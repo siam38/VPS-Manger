@@ -237,8 +237,18 @@ select {
    * One primary per view. Everything else is quiet. Destructive is
    * the only place red appears.
    */
+  /* Height lives HERE, once, for every button in the app.
+   *
+   * Previously ~20 call sites sprayed `max-md:!h-11` by hand to chase a 44px
+   * touch target. That rule is for icon-only SQUARES: a text button like
+   * "Continue" is already ~100px wide, so forcing it to 44px tall just makes
+   * it look inflated — and because it was per-call-site, some buttons got it
+   * and some didn't. Inconsistent AND bloated.
+   *
+   * A wide target is already easy to hit. 38px on mobile is comfortable for a
+   * button with real width; the square icon controls below keep the full 44. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 h-9 px-3
+    @apply inline-flex items-center justify-center gap-2 h-9 max-md:h-[38px] px-3
            text-body font-medium rounded-control
            transition-colors duration-150 whitespace-nowrap
            disabled:opacity-40 disabled:pointer-events-none;
@@ -283,7 +293,7 @@ select {
   }
 
   .btn-sm {
-    @apply h-8 px-2.5 text-meta;
+    @apply h-8 max-md:h-[34px] px-2.5 text-meta;
   }
 
   /* Icon-only control. Meets the 44px touch target on mobile. */
@@ -299,7 +309,7 @@ select {
    * outline on an unfocused empty field reads as an error, and it was
    * louder than the primary button next to it. Focus adds the accent. */
   .field {
-    @apply w-full h-9 px-3 bg-canvas border border-line/70 rounded-control
+    @apply w-full h-9 max-md:h-10 px-3 bg-canvas border border-line/70 rounded-control
            text-body text-ink placeholder-muted
            focus:outline-none focus:border-accent focus:shadow-ring-accent
            transition-colors duration-150;

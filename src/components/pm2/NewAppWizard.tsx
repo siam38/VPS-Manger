@@ -17,6 +17,23 @@ interface EnvVar { key: string; value: string }
 
 const STEPS = ['Folder', 'Script', 'Options', 'Review'];
 
+/* The old wizard never said what a step was FOR. Four bare nouns and eleven
+ * controls is where people got lost — not because any single field was
+ * unclear, but because nothing framed the decision being asked for. */
+const STEP_TITLES = [
+  'Choose the project folder',
+  'Pick the start script',
+  'Name it and set behaviour',
+  'Review and start',
+];
+
+const STEP_HINTS = [
+  'Where the app lives on this server.',
+  'The file PM2 runs to boot your app.',
+  'Defaults are safe — only the name is required.',
+  'Check it over, then start the app.',
+];
+
 /**
  * New application wizard.
  *
@@ -79,6 +96,14 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
     /* eslint-disable-next-line */
   }, []);
 
+  // Shown on the collapsed Advanced summary so a closed drawer never hides
+  // settings you already made. Empty drawer = no badge = nothing concealed.
+  const advancedCount =
+    (maxMemRestart.trim() ? 1 : 0) +
+    (cronRestart.trim() ? 1 : 0) +
+    (nodeArgs.trim() ? 1 : 0) +
+    envVars.filter(v => v.key.trim()).length;
+
   const startFile = manualFile || selectedFile;
   const targetDir = selectedFolder || browsePath;
 
@@ -134,41 +159,72 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
       <div className="bg-canvas border border-line w-full sm:max-w-2xl h-[94vh] sm:h-auto sm:max-h-[88vh]
                       rounded-t-modal sm:rounded-modal overflow-hidden flex flex-col shadow-2xl animate-slide-up">
 
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 h-14 border-b border-line shrink-0">
+        {/* Header — the title states the STEP, not the wizard. The old header
+         * said "New application" with the step name under it, and the rail
+         * below said the step name again: the same word twice in 40px.
+         * Now the header carries the current step plus what it's for, which
+         * is the one piece of guidance that was missing entirely. */}
+        <div className="flex items-start justify-between gap-3 px-4 sm:px-5 py-3 border-b border-line shrink-0">
           <div className="min-w-0">
-            <h3 className="text-body font-semibold text-ink">New application</h3>
-            <p className="text-label text-subtle">{STEPS[step - 1]}</p>
+            <p className="text-label text-subtle">New application</p>
+            <h3 className="text-title font-semibold text-ink leading-tight">{STEP_TITLES[step - 1]}</h3>
+            <p className="text-meta text-muted mt-0.5">{STEP_HINTS[step - 1]}</p>
           </div>
-          <button onClick={onClose} className="btn-icon !w-9 !h-9" aria-label="Close wizard">
+          {/* Icon-only square: this is exactly the case the 44px minimum is
+            * FOR, unlike the text buttons that were wrongly inflated to match. */}
+          <button onClick={onClose} className="btn-icon shrink-0 -mr-1" aria-label="Close wizard">
             <X className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
           </button>
         </div>
 
-        {/* Step rail — named, not four anonymous bars. */}
-        <ol className="flex items-center gap-1 px-4 sm:px-5 py-2.5 border-b border-line shrink-0">
+        {/* Step rail.
+         *
+         * The names used to be `max-sm:sr-only`, so a phone got four numbered
+         * circles and three chevrons — literally the anonymous-bars pattern
+         * this was supposed to replace. Mobile got the worse version of the
+         * thing desktop had fixed.
+         *
+         * Now: a single continuous track where the ACTIVE step keeps its name
+         * at every width and completed steps collapse to ticks. You always
+         * know where you are, and it costs one row instead of four labels. */}
+        <ol className="flex items-start px-4 sm:px-5 pb-3 shrink-0" aria-label="Progress">
           {STEPS.map((s, i) => {
             const n = i + 1;
             const done = n < step;
             const active = n === step;
             return (
-              <li key={s} className="flex items-center gap-1 min-w-0">
+              <li key={s} className="flex-1 min-w-0 flex flex-col items-center gap-1 relative">
+                {/* Connector track. Without it, four separate shapes read as a
+                  * tab bar, not a sequence. Drawn behind the dot, half-width
+                  * on each side so the ends don't hang past the first/last. */}
+                {i > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className={`absolute top-[9px] right-1/2 left-[-50%] h-px
+                      ${done || active ? 'bg-accent/40' : 'bg-line'}`}
+                  />
+                )}
                 <button
                   onClick={() => n < step && setStep(n)}
                   disabled={n > step}
-                  className={`flex items-center gap-1.5 px-2 h-7 rounded-chip text-label font-medium transition-colors
-                    ${active ? 'bg-accent/10 text-accent' : done ? 'text-muted hover:text-ink' : 'text-subtle'}`}
                   aria-current={active ? 'step' : undefined}
+                  aria-label={`Step ${n}: ${s}`}
+                  className="group flex flex-col items-center gap-1 w-full min-w-0 disabled:pointer-events-none"
                 >
-                  <span className={`w-4 h-4 rounded-full grid place-items-center text-[10px] shrink-0
-                    ${active ? 'bg-accent text-canvas' : done ? 'bg-emerald-400/20 text-emerald-400' : 'bg-raised'}`}>
-                    {done ? '✓' : n}
+                  <span className={`relative w-[19px] h-[19px] rounded-full grid place-items-center
+                    text-[10px] font-semibold shrink-0 border transition-colors duration-150
+                    ${active
+                      ? 'bg-accent text-canvas border-accent'
+                      : done
+                        ? 'bg-accent/15 text-accent border-accent/40 group-hover:bg-accent/25'
+                        : 'bg-raised text-subtle border-line'}`}>
+                    {done ? <Check className="w-2.5 h-2.5" strokeWidth={3} aria-hidden="true" /> : n}
                   </span>
-                  <span className="max-sm:sr-only">{s}</span>
+                  <span className={`text-label leading-none truncate max-w-full transition-colors duration-150
+                    ${active ? 'text-ink font-medium' : done ? 'text-muted group-hover:text-ink' : 'text-subtle'}`}>
+                    {s}
+                  </span>
                 </button>
-                {i < STEPS.length - 1 && (
-                  <ChevronRight className="w-3 h-3 text-subtle shrink-0" aria-hidden="true" />
-                )}
               </li>
             );
           })}
@@ -286,7 +342,7 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
                   value={manualFile}
                   onChange={e => { setManualFile(e.target.value); setSelectedFile(''); }}
                   placeholder="src/index.js"
-                  className="field font-mono max-md:!h-11"
+                  className="field font-mono"
                 />
               </div>
             </div>
@@ -303,7 +359,7 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
                     value={appName}
                     onChange={e => setAppName(e.target.value)}
                     placeholder="my-app"
-                    className="field max-md:!h-11"
+                    className="field"
                   />
                 </div>
                 <div>
@@ -312,7 +368,7 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
                     id="interp"
                     value={interpreter}
                     onChange={e => setInterpreter(e.target.value)}
-                    className="field max-md:!h-11"
+                    className="field"
                   >
                     <option value="node">Node.js</option>
                     <option value="python3">Python 3</option>
@@ -337,9 +393,18 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
                 <div>
                   <label htmlFor="inst" className="eyebrow block mb-1.5">Instances</label>
                   <input id="inst" value={instances} onChange={e => setInstances(e.target.value)}
-                         placeholder="max" className="field max-md:!h-11" />
+                         placeholder="max" className="field" />
                 </div>
               )}
+
+              {/* Section break, not another field label. Styled identically to
+                * NAME / INTERPRETER it read as a fourth peer field; the rule
+                * above it is what makes it scan as a parent of the cards. */}
+              <div className="pt-2">
+                <div className="h-px bg-line mb-3" aria-hidden="true" />
+                <p className="text-meta font-medium text-ink">Behaviour</p>
+                <p className="text-label text-subtle mt-0.5">These defaults are safe — change them only if you need to.</p>
+              </div>
 
               <Toggle
                 checked={saveForBoot} onChange={setSaveForBoot}
@@ -381,7 +446,7 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
                     <div>
                       <label htmlFor="ignore" className="eyebrow block mb-1.5">Additional ignore patterns</label>
                       <input id="ignore" value={ignoreWatch} onChange={e => setIgnoreWatch(e.target.value)}
-                             placeholder="data/, *.json" className="field font-mono max-md:!h-11" />
+                             placeholder="data/, *.json" className="field font-mono" />
                       <p className="text-label text-subtle mt-1">
                         Already ignored: node_modules, .git, *.db, *.sqlite, *.log, logs
                       </p>
@@ -390,69 +455,91 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
                     <div>
                       <label htmlFor="only" className="eyebrow block mb-1.5">Watch these paths only</label>
                       <input id="only" value={watchOnly} onChange={e => setWatchOnly(e.target.value)}
-                             placeholder="src/, index.js" className="field font-mono max-md:!h-11" />
+                             placeholder="src/, index.js" className="field font-mono" />
                     </div>
                   )}
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="maxmem" className="eyebrow block mb-1.5">Restart above memory</label>
-                  <input id="maxmem" value={maxMemRestart} onChange={e => setMaxMemRestart(e.target.value)}
-                         placeholder="200M" className="field font-mono max-md:!h-11" />
-                </div>
-                <div>
-                  <label htmlFor="cron" className="eyebrow block mb-1.5">Scheduled restart</label>
-                  <input id="cron" value={cronRestart} onChange={e => setCronRestart(e.target.value)}
-                         placeholder="0 0 * * *" className="field font-mono max-md:!h-11" />
-                </div>
-              </div>
+              {/* Everything below is genuinely optional and mostly blank.
+               * Flat, it read as five more required-looking fields and was the
+               * bulk of the "wall" — the reason this step felt confusing.
+               * Collapsed by default; the summary says what's inside so it
+               * isn't a mystery drawer. */}
+              <details className="group rounded-card border border-line bg-surface overflow-hidden">
+                <summary className="flex items-center gap-2 px-3 h-11 cursor-pointer select-none hover:bg-raised transition-colors marker:content-none [&::-webkit-details-marker]:hidden">
+                  <ChevronRight className="w-4 h-4 text-subtle shrink-0 transition-transform group-open:rotate-90" strokeWidth={1.5} aria-hidden="true" />
+                  <span className="text-body font-medium text-ink">Advanced</span>
+                  <span className="text-label text-subtle truncate">Memory limit, schedule, node args, environment</span>
+                  {advancedCount > 0 && (
+                    <span className="ml-auto pill pill-neutral shrink-0">{advancedCount} set</span>
+                  )}
+                </summary>
 
-              <div>
-                <label htmlFor="nodeargs" className="eyebrow block mb-1.5">Node arguments</label>
-                <input id="nodeargs" value={nodeArgs} onChange={e => setNodeArgs(e.target.value)}
-                       placeholder="--max-old-space-size=4096" className="field font-mono max-md:!h-11" />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="eyebrow">Environment variables</p>
-                  <button
-                    onClick={() => setEnvVars([...envVars, { key: '', value: '' }])}
-                    className="btn btn-sm btn-quiet"
-                  >
-                    <Plus className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" /> Add
-                  </button>
-                </div>
-                {envVars.map((v, i) => (
-                  <div key={i} className="flex gap-2 mb-1.5">
-                    <input
-                      value={v.key}
-                      onChange={e => {
-                        const next = [...envVars]; next[i] = { ...next[i], key: e.target.value }; setEnvVars(next);
-                      }}
-                      placeholder="KEY" aria-label={`Variable ${i + 1} name`}
-                      className="field flex-1 font-mono !h-9 max-md:!h-11"
-                    />
-                    <input
-                      value={v.value}
-                      onChange={e => {
-                        const next = [...envVars]; next[i] = { ...next[i], value: e.target.value }; setEnvVars(next);
-                      }}
-                      placeholder="value" aria-label={`Variable ${i + 1} value`}
-                      className="field flex-1 font-mono !h-9 max-md:!h-11"
-                    />
-                    <button
-                      onClick={() => setEnvVars(envVars.filter((_, j) => j !== i))}
-                      className="btn-icon !w-9 !h-9 max-md:!w-11 max-md:!h-11 hover:text-danger"
-                      aria-label={`Remove variable ${i + 1}`}
-                    >
-                      <X className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
-                    </button>
+                <div className="border-t border-line p-3 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="maxmem" className="eyebrow block mb-1.5">Restart above memory</label>
+                      <input id="maxmem" value={maxMemRestart} onChange={e => setMaxMemRestart(e.target.value)}
+                             placeholder="200M" className="field font-mono" />
+                    </div>
+                    <div>
+                      <label htmlFor="cron" className="eyebrow block mb-1.5">Scheduled restart</label>
+                      <input id="cron" value={cronRestart} onChange={e => setCronRestart(e.target.value)}
+                             placeholder="0 0 * * *" className="field font-mono" />
+                      <p className="text-label text-subtle mt-1">Cron expression, e.g. 0 0 * * * for nightly.</p>
+                    </div>
                   </div>
-                ))}
-              </div>
+
+                  <div>
+                    <label htmlFor="nodeargs" className="eyebrow block mb-1.5">Node arguments</label>
+                    <input id="nodeargs" value={nodeArgs} onChange={e => setNodeArgs(e.target.value)}
+                           placeholder="--max-old-space-size=4096" className="field font-mono" />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="eyebrow">Environment variables</p>
+                      <button
+                        onClick={() => setEnvVars([...envVars, { key: '', value: '' }])}
+                        className="btn btn-sm btn-quiet"
+                      >
+                        <Plus className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden="true" /> Add
+                      </button>
+                    </div>
+                    {envVars.length === 0 && (
+                      <p className="text-meta text-subtle">None set. The app inherits a clean environment.</p>
+                    )}
+                    {envVars.map((v, i) => (
+                      <div key={i} className="flex gap-2 mb-1.5">
+                        <input
+                          value={v.key}
+                          onChange={e => {
+                            const next = [...envVars]; next[i] = { ...next[i], key: e.target.value }; setEnvVars(next);
+                          }}
+                          placeholder="KEY" aria-label={`Variable ${i + 1} name`}
+                          className="field flex-1 font-mono !h-9"
+                        />
+                        <input
+                          value={v.value}
+                          onChange={e => {
+                            const next = [...envVars]; next[i] = { ...next[i], value: e.target.value }; setEnvVars(next);
+                          }}
+                          placeholder="value" aria-label={`Variable ${i + 1} value`}
+                          className="field flex-1 font-mono !h-9"
+                        />
+                        <button
+                          onClick={() => setEnvVars(envVars.filter((_, j) => j !== i))}
+                          className="btn-icon !w-9 !h-9 hover:text-danger"
+                          aria-label={`Remove variable ${i + 1}`}
+                        >
+                          <X className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </details>
             </div>
           )}
 
@@ -494,7 +581,7 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 h-16 border-t border-line shrink-0">
           <button
             onClick={() => (step > 1 ? setStep(step - 1) : onClose())}
-            className="btn btn-quiet max-md:!h-11"
+            className="btn btn-quiet"
           >
             {step > 1 ? 'Back' : 'Cancel'}
           </button>
@@ -502,16 +589,15 @@ export function NewAppWizard({ onClose, onCreated }: Props) {
             <button
               onClick={() => setStep(step + 1)}
               disabled={!canContinue}
-              className="btn btn-primary max-md:!h-11"
+              className="btn btn-primary"
             >
               Continue
-              <ChevronRight className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />
             </button>
           ) : (
             <button
               onClick={create}
               disabled={creating || !appName.trim() || !startFile}
-              className="btn btn-primary max-md:!h-11"
+              className="btn btn-primary"
             >
               {creating
                 ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />

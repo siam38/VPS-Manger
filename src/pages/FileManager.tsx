@@ -819,21 +819,21 @@ export default function FileManager() {
                   {selected.size} selected
                 </span>
                 <button
-                  className="btn btn-quiet btn-sm max-sm:!h-11"
+                  className="btn btn-quiet btn-sm"
                   onClick={() => setClipboard({ items: [...selected], mode: 'copy' })}
                   aria-label="Copy selected"
                 >
                   <Copy className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <button
-                  className="btn btn-quiet btn-sm max-sm:!h-11"
+                  className="btn btn-quiet btn-sm"
                   onClick={() => setClipboard({ items: [...selected], mode: 'cut' })}
                   aria-label="Cut selected"
                 >
                   <Scissors className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <button
-                  className="btn btn-danger btn-sm max-sm:!h-11"
+                  className="btn btn-danger btn-sm"
                   onClick={() => remove([...selected])}
                 >
                   <Trash2 className="w-4 h-4" aria-hidden="true" />
