@@ -73,6 +73,17 @@ const TerminalPane = React.forwardRef<TerminalPaneHandle, Props>(function Termin
 
   useEffect(() => {
     let cancelled = false;
+    // Re-arm for THIS effect run.
+    //
+    // disposedRef is per-component-instance, not per-effect-run, and cleanup
+    // sets it true. React 18 StrictMode mounts, cleans up, then re-mounts the
+    // *same* instance in development, so without this reset the flag stayed
+    // true forever: the second run created a PTY, the ack took the "raced
+    // against unmount" branch, and immediately destroyed the shell it had just
+    // asked for. Status never reached 'ready' and the pane sat on "Connecting"
+    // with no error anywhere — the server had done everything correctly.
+    // Any future remount (route change, key change) hits the same trap.
+    disposedRef.current = false;
     // Captured for cleanup: the effect must not read refs that may have moved on.
     const cleanups: Array<() => void> = [];
 
