@@ -163,7 +163,7 @@ export default function Settings() {
           <div className="border-t border-line pt-4 space-y-3">
             <label className="setting-row cursor-pointer">
               <span className="min-w-0">
-                <span className="block text-body text-ink">Check automatically</span>
+                <span className="block text-body text-ink">Check for updates automatically</span>
                 <span className="block text-label text-muted">Look for new versions in the background.</span>
               </span>
               <input
