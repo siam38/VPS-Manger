@@ -85,7 +85,7 @@ export default function Settings() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
       <header>
         <h1 className="text-lg font-semibold text-ink">Settings</h1>
-        <p className="text-meta text-muted mt-0.5">Panel updates and preferences.</p>
+        <p className="text-meta text-muted mt-0.5">Panel updates, channel, and check frequency.</p>
       </header>
 
       <section className="card">
