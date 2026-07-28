@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { RefreshCw, Download, CheckCircle2, WifiOff, AlertTriangle, RotateCcw } from 'lucide-react';
+import { RefreshCw, Download, CheckCircle2, WifiOff, AlertTriangle, RotateCcw, X } from 'lucide-react';
 import {
   checkForUpdate, saveUpdateConfig, resetDismissals, reasonLabel, formatChecked,
-  applyUpdate, fetchUpdateStatus,
+  applyUpdate, fetchUpdateStatus, clearUpdateStatus,
   type UpdateCheck, type UpdateConfig, type UpdateStatus,
 } from '../lib/update';
 import { useToast } from '../lib/toast';
@@ -81,6 +81,11 @@ export default function Settings() {
     } catch (e: any) {
       toast.error(e.message || 'Could not start the update');
     }
+  };
+
+  const dismissLastRun = async () => {
+    setLastRun(null);
+    try { await clearUpdateStatus(); } catch { /* record is cosmetic */ }
   };
 
   const patch = async (p: Partial<UpdateConfig>) => {
@@ -174,7 +179,16 @@ export default function Settings() {
               {lastRun.ok
                 ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
                 : <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />}
-              <span>{lastRun.message}</span>
+              <span className="min-w-0 flex-1">{lastRun.message}</span>
+              {/* A finished run is history. Without a way to clear it, a panel
+                  that is serving perfectly well keeps insisting it is broken. */}
+              <button
+                onClick={dismissLastRun}
+                className="btn-icon shrink-0 -mt-1 -mr-1"
+                aria-label="Dismiss update result"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           )}
 

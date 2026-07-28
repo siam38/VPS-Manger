@@ -113,6 +113,10 @@ export const skipUpdateVersion = (version: string) =>
 
 export const resetDismissals = () => apiPost<UpdateConfig>('/api/update/reset-dismissals');
 
+/** Dismiss the record of a finished run. A past failure is history, not the
+ *  panel's current state. */
+export const clearUpdateStatus = () => apiPost<{ cleared: boolean }>('/api/update/status/clear');
+
 /**
  * Human copy for the non-actionable outcomes. These are states, not errors —
  * a VPS with no route to GitHub is a supported deployment, not a fault.
