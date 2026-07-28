@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { RefreshCw, Download, CheckCircle2, WifiOff, AlertTriangle, RotateCcw } from 'lucide-react';
 import {
   checkForUpdate, saveUpdateConfig, resetDismissals, reasonLabel, formatChecked,
@@ -15,6 +16,7 @@ import UpdateProgress from '../components/UpdateProgress';
  */
 export default function Settings() {
   const toast = useToast();
+  const [params, setParams] = useSearchParams();
   const [check, setCheck] = useState<UpdateCheck | null>(null);
   const [config, setConfig] = useState<UpdateConfig | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,6 +51,22 @@ export default function Settings() {
       else if (s.finishedAt) setLastRun(s);
     });
   }, []);
+
+  // Arriving from the update prompt with ?update=1 goes straight to the
+  // confirm.
+  //
+  // The flag must NOT be consumed until the check has resolved: on first mount
+  // `check` is still null, so clearing the param immediately would drop the
+  // intent before there is anything to confirm against.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (params.get('update') !== '1') return;
+    if (!check) return; // still loading — keep the flag for the next pass
+    setParams({}, { replace: true });
+    if (autoStarted.current || !check.updateAvailable) return;
+    autoStarted.current = true;
+    startUpdate();
+  }, [params, check]);
 
   const startUpdate = async () => {
     const ok = await toast.confirm({

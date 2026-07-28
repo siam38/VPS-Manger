@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import Login from './pages/Login';
 import Layout from './components/Layout';
@@ -163,6 +163,7 @@ function App() {
  *  itself on the full-viewport routes. */
 function UpdateGate() {
   const { check, open, close, snooze, skip } = useUpdatePrompt();
+  const navigate = useNavigate();
   if (!open || !check) return null;
   return (
     <UpdateModal
@@ -170,7 +171,13 @@ function UpdateGate() {
       onClose={close}
       onSnooze={snooze}
       onSkip={skip}
-      onUpdate={() => { window.location.href = '/settings'; }}
+      onUpdate={() => {
+        // Client-side navigation, not a page load: reloading would reset the
+        // "already prompted for this version" state and immediately re-open
+        // this very dialog. Settings owns the confirm + progress view.
+        close();
+        navigate('/settings?update=1');
+      }}
     />
   );
 }
