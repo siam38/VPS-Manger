@@ -332,6 +332,14 @@ select {
            border-b border-line/70 last:border-0;
   }
 
+  /* Two-line settings row: a label plus its explanation, with a control on the
+     right. `.row` is a fixed-height single-line primitive and squashes this,
+     so the variant lives here rather than as per-call-site overrides. */
+  .setting-row {
+    @apply flex items-center justify-between gap-4 py-2
+           max-sm:items-start max-sm:flex-col max-sm:gap-2;
+  }
+
   .row-key {
     @apply text-meta text-muted shrink-0;
   }

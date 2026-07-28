@@ -7,3 +7,7 @@ server/audit.log
 .DS_Store
 server/sessions.json
 server/sessions.json.tmp
+server/update-cache.json
+server/update-config.json
+server/update-cache.json.tmp
+server/update-config.json.tmp

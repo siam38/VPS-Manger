@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import Login from './pages/Login';
 import Layout from './components/Layout';
+import UpdateModal from './components/UpdateModal';
+import { useUpdatePrompt } from './lib/useUpdatePrompt';
 import { disconnectSocket } from './lib/socket';
 import { ToastProvider } from './lib/toast';
 import { bootstrap, logout as authLogout, onAuthChange, setToken } from './lib/auth';
@@ -15,6 +17,7 @@ const Terminal = lazy(() => import('./pages/Terminal'));
 const Processes = lazy(() => import('./pages/Processes'));
 const PM2Manager = lazy(() => import('./pages/PM2Manager'));
 const GitSync = lazy(() => import('./pages/GitSync'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 function RouteFallback() {
   return (
@@ -143,13 +146,32 @@ function App() {
               <Route path="/processes" element={<Processes />} />
               <Route path="/pm2" element={<PM2Manager />} />
               <Route path="/git" element={<GitSync />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
         </Layout>
+        {/* Inside the router: the prompt's timing depends on the current route. */}
+        <UpdateGate />
       </BrowserRouter>
       </ToastProvider>
     </ErrorBoundary>
+  );
+}
+
+/** Kept separate so the update check mounts inside the router and can suppress
+ *  itself on the full-viewport routes. */
+function UpdateGate() {
+  const { check, open, close, snooze, skip } = useUpdatePrompt();
+  if (!open || !check) return null;
+  return (
+    <UpdateModal
+      check={check}
+      onClose={close}
+      onSnooze={snooze}
+      onSkip={skip}
+      onUpdate={() => { window.location.href = '/settings'; }}
+    />
   );
 }
 

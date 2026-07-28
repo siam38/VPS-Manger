@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FolderOpen, Terminal, Cpu, Boxes, GitBranch,
-  LogOut, Menu, X, PanelLeftClose, PanelLeftOpen,
+  LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon,
 } from 'lucide-react';
 import Footer from './Footer';
 
@@ -20,6 +20,7 @@ const NAV = [
   { path: '/processes', icon: Cpu, label: 'Processes' },
   { path: '/pm2', icon: Boxes, label: 'PM2' },
   { path: '/git', icon: GitBranch, label: 'Git Sync' },
+  { path: '/settings', icon: SettingsIcon, label: 'Settings' },
 ];
 
 export default function Layout({ children, onLogout }: Props) {

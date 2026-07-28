@@ -18,6 +18,7 @@ const compression = require('compression');
 const crypto = require('crypto');
 const platform = require('./platform.cjs');
 const sessionStore = require('./sessions.cjs');
+const updater = require('./updater.cjs');
 
 const app = express();
 const server = http.createServer(app);
@@ -2219,6 +2220,65 @@ app.get('/health', (req, res) => {
   });
 });
 
+// ─── Self-update (detection only; applying lives in scripts/updater.mjs) ───
+// Deliberately separate from GitSync: no git, no SSH, no remote. Anonymous
+// HTTPS to the GitHub Releases API, so it works on any Linux VPS with
+// outbound 443 and nothing else.
+
+app.get('/api/update/check', authMiddleware, async (req, res) => {
+  try {
+    const result = await updater.check({ force: req.query.force === '1' });
+    res.json({ ...result, notify: updater.shouldNotify(result), config: updater.loadConfig() });
+  } catch (e) {
+    res.status(503).json({ error: e.message, code: e.code || 'CHECK_FAILED' });
+  }
+});
+
+app.get('/api/update/config', authMiddleware, (req, res) => {
+  res.json(updater.loadConfig());
+});
+
+app.post('/api/update/config', authMiddleware, (req, res) => {
+  const allowed = ['enabled', 'channel', 'checkIntervalHours', 'autoInstall', 'autoInstallWindow'];
+  const patch = {};
+  for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+  if (patch.channel && !['stable', 'beta'].includes(patch.channel)) {
+    return res.status(400).json({ error: 'channel must be stable or beta' });
+  }
+  if (patch.checkIntervalHours !== undefined) {
+    const n = Number(patch.checkIntervalHours);
+    if (!Number.isFinite(n) || n < 1 || n > 168) {
+      return res.status(400).json({ error: 'checkIntervalHours must be 1-168' });
+    }
+    patch.checkIntervalHours = n;
+  }
+  res.json(updater.saveConfig(patch));
+});
+
+// Snooze: server-side on purpose, so dismissing on a phone is honoured on desktop.
+app.post('/api/update/snooze', authMiddleware, (req, res) => {
+  const DURATIONS = { '1h': 3600e3, '1d': 86400e3, '1w': 604800e3 };
+  const ms = DURATIONS[req.body?.duration];
+  if (!ms) return res.status(400).json({ error: 'duration must be 1h, 1d or 1w' });
+  res.json(updater.saveConfig({ snoozedUntil: Date.now() + ms }));
+});
+
+app.post('/api/update/skip', authMiddleware, (req, res) => {
+  const version = req.body?.version;
+  if (!version) return res.status(400).json({ error: 'version required' });
+  res.json(updater.saveConfig({ skippedVersion: String(version) }));
+});
+
+app.post('/api/update/reset-dismissals', authMiddleware, (req, res) => {
+  res.json(updater.saveConfig({ snoozedUntil: null, skippedVersion: null }));
+});
+
+// Unauthenticated on purpose: the post-update health probe needs to confirm the
+// new build is answering before the old release directory is pruned.
+app.get('/api/version', (req, res) => {
+  res.json({ version: updater.currentVersion(), ok: true });
+});
+
 // SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
@@ -2232,4 +2292,5 @@ process.on('SIGTERM', () => {
 
 server.listen(PORT, () => {
   console.log(`VPS Manager V3.1 running on port ${PORT}`);
+  updater.startBackgroundChecks();
 });
