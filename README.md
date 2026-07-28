@@ -1,4 +1,4 @@
-# 🦊 Fox VPS Manager
+# 🦊 VPS Manager
 
 A self-hosted control panel for a Linux server. It replaces the usual loop —
 SSH in, run `htop`, `cd` around, `pm2 list`, `git pull` — with one authenticated
@@ -155,7 +155,7 @@ when they exist; otherwise the changelog is built from the commits.
 
 ```ini
 [Unit]
-Description=Fox VPS Manager
+Description=VPS Manager
 After=network.target
 
 [Service]

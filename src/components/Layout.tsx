@@ -81,7 +81,7 @@ export default function Layout({ children, onLogout }: Props) {
              * is on screen instead of requiring a shell. */
             <div className="min-w-0 leading-tight">
               <div className="font-semibold text-ink text-body tracking-tight truncate">
-                Fox VPS Manager
+                VPS Manager
               </div>
               <div className="flex items-center gap-1.5 text-label text-muted">
                 <span className="font-mono tabular">v{version}</span>

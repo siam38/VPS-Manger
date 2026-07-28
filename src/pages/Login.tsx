@@ -79,7 +79,7 @@ export default function Login({ onLogin }: Props) {
                 <span className="text-page leading-none" aria-hidden="true">🦊</span>
               </div>
               <div>
-                <h1 className="text-page font-semibold text-ink leading-tight">Fox VPS Manager</h1>
+                <h1 className="text-page font-semibold text-ink leading-tight">VPS Manager</h1>
                 <p className="text-meta text-muted leading-tight font-mono tabular">
                   v{version}
                 </p>
@@ -119,7 +119,7 @@ export default function Login({ onLogin }: Props) {
                   <span className="text-title leading-none" aria-hidden="true">🦊</span>
                 </div>
                 <div>
-                  <h1 className="text-title font-semibold text-ink leading-tight">Fox VPS Manager</h1>
+                  <h1 className="text-title font-semibold text-ink leading-tight">VPS Manager</h1>
                   <p className="text-label text-muted leading-tight font-mono tabular">v{version}</p>
                 </div>
               </div>

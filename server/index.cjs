@@ -2390,7 +2390,7 @@ process.on('SIGTERM', () => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Fox VPS Manager v3 running on port ${PORT}`);
+  console.log(`🦊 VPS Manager running on port ${PORT}`);
   // An unattended install restarts the panel with nobody watching, so it has
   // to leave a trail. The hook fires at the decision point, before the runner
   // takes the process down.

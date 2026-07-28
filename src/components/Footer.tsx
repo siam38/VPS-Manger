@@ -11,6 +11,11 @@ import { Heart } from 'lucide-react';
  *
  * `compact` is for the sidebar rail, where there is no room for the version
  * line beside the credit.
+ *
+ * The product name used to lead this line. It was redundant — the rail header
+ * already states the name and version on every screen — and it made the
+ * signature read like a banner instead of a credit. The footer is now only
+ * the credit and the build.
  */
 export default function Footer({ compact = false }: { compact?: boolean }) {
   const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '3.1.0';
@@ -20,8 +25,6 @@ export default function Footer({ compact = false }: { compact?: boolean }) {
       className={`shrink-0 flex items-center justify-center gap-1.5 text-label text-muted
                   ${compact ? 'py-2' : 'py-4 px-4 border-t border-line'}`}
     >
-      <span className="text-ink font-medium">Fox VPS Manager</span>
-      <span className="text-line-strong mx-0.5" aria-hidden="true">·</span>
       <span>Made by</span>
       <span className="text-ink font-medium">SiAM</span>
       <span>with</span>
