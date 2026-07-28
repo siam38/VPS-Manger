@@ -74,6 +74,15 @@ const steps = [
   'check', 'backup', 'download', 'install', 'build', 'verify', 'swap', 'restart', 'done',
 ];
 
+// Captured at load, before anything is written: the install's owner is who the
+// status file must belong to, not whoever is running the update.
+const STATUS_OWNER = (() => {
+  try {
+    const st = fs.statSync(ROOT);
+    return (st.uid === 0 && st.gid === 0) ? null : { uid: st.uid, gid: st.gid };
+  } catch { return null; }
+})();
+
 let state = {
   running: true,
   ok: null,
@@ -108,6 +117,12 @@ function writeStatus() {
     const tmp = `${STATUS_FILE}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
     fs.renameSync(tmp, STATUS_FILE);
+    // The runner is root; the panel that must later rewrite and delete this
+    // file is not. Left root-owned, dismissing a finished run fails with
+    // EACCES and the result banner cannot be cleared.
+    if (STATUS_OWNER && typeof process.getuid === 'function' && process.getuid() === 0) {
+      try { fs.chownSync(STATUS_FILE, STATUS_OWNER.uid, STATUS_OWNER.gid); } catch {}
+    }
   } catch {}
 }
 
@@ -305,13 +320,32 @@ function restartStrategy() {
  * process answers and the update reports success. Port ownership is the fact
  * that actually matters here.
  */
-function stopPanel() {
-  const pids = listenersOn(PORT);
+async function stopPanel(hintPid = null) {
+  const pids = new Set(listenersOn(PORT));
+
+  // Ask the panel who it is.
+  //
+  // This is the only identification that works on a host where fuser/lsof/ss
+  // are absent AND /proc/<pid>/fd is unreadable even to root (hardened
+  // containers block the symlinks, so the inode->pid scan resolves nothing and
+  // stopPanel silently kills no one). /api/version reports the serving
+  // process's own pid, and it is port-specific by construction: whoever
+  // answers on PORT is by definition the process to stop.
+  //
+  // Deliberately NOT a scan of process command lines. Two installs of this
+  // panel on one box have identical argv, so a cmdline match would kill an
+  // unrelated instance that happens to share the name.
+  const self = await waitForHttp(PORT, 4000, false);
+  if (self?.pid) pids.add(Number(self.pid));
+  if (hintPid) pids.add(Number(hintPid));
+
+  let signalled = 0;
   for (const pid of pids) {
-    if (pid === process.pid) continue;
-    try { process.kill(pid, 'SIGTERM'); } catch {}
+    if (!pid || pid === process.pid) continue;
+    try { process.kill(pid, 'SIGTERM'); signalled++; } catch {}
   }
-  return pids.length;
+  log(`stop: signalled ${signalled} process(es) on port ${PORT}`);
+  return signalled;
 }
 
 /** PIDs listening on a TCP port, via whichever tool this host has. */
@@ -373,15 +407,23 @@ function listenersFromProc(port) {
  *  A process owned by another user is invisible in /proc to a non-root caller,
  *  so "no listeners found" is not proof the port is free. Confirm by actually
  *  trying to bind it. */
-function waitForPortFree(port, timeoutMs = 20_000) {
+function waitForPortFree(port, timeoutMs = 20_000, extraPids = []) {
   const deadline = Date.now() + timeoutMs;
+  const escalate = new Set(extraPids.filter(Boolean).map(Number));
   while (Date.now() < deadline) {
     const pids = listenersOn(port);
-    for (const pid of pids) { try { process.kill(pid, 'SIGKILL'); } catch {} }
-    if (!pids.length && canBind(port)) return true;
+    for (const pid of [...pids, ...escalate]) {
+      if (!pid || pid === process.pid) continue;
+      try { process.kill(pid, 'SIGKILL'); } catch {}
+    }
+    // canBind is the verdict, not the pid list. On hosts where fuser/lsof/ss
+    // are missing and /proc fds are unreadable, listenersOn returns an empty
+    // array whether the port is free or held — so requiring it to be empty
+    // proves nothing, while a successful bind proves everything.
+    if (canBind(port)) return true;
     spawnSync('sleep', ['1']);
   }
-  return listenersOn(port).length === 0 && canBind(port);
+  return canBind(port);
 }
 
 /** Can we actually bind the port right now? The only trustworthy answer. */
@@ -559,12 +601,12 @@ async function main() {
 
     // ── 7. swap ──
     setStep('swap', 'Installing the new version');
-    stopPanel();
+    await stopPanel(beforePid);
     await new Promise(r => setTimeout(r, 2500));
     // The old process must be gone before the new one binds, or the restart
     // fails with EADDRINUSE while the stale server keeps answering — which
     // would make the health check below pass against the wrong process.
-    if (!waitForPortFree(PORT)) {
+    if (!waitForPortFree(PORT, 20_000, [beforePid])) {
       // Restoring is pointless: nothing has been swapped yet at this point
       // only because we abort here. Bail before touching anything further.
       return finish(false, `Could not stop the process holding port ${PORT}. Nothing was changed.`);
@@ -623,9 +665,9 @@ async function main() {
       const recovery = restartError && finalStrategy.kind !== 'node'
         ? { kind: 'node' }
         : finalStrategy;
-      stopPanel();
+      await stopPanel();
       await new Promise(r => setTimeout(r, 2000));
-      waitForPortFree(PORT);
+      waitForPortFree(PORT, 20_000, [beforePid, live?.pid]);
       run('sh', ['-c',
         `cd ${JSON.stringify(BACKUP)} && tar -cf - . | (cd ${JSON.stringify(ROOT)} && tar -xf -)`
       ]);
