@@ -2318,6 +2318,14 @@ app.get('/api/update/status', (req, res) => {
   res.json(updater.readStatus() || { running: false, ok: null, step: null });
 });
 
+// Dismiss a finished run's record. A past failure is history; leaving it on
+// screen with no way to clear it makes a healthy panel look broken.
+app.post('/api/update/status/clear', authMiddleware, (req, res) => {
+  const r = updater.clearStatus();
+  if (!r.cleared) return res.status(409).json({ error: r.reason });
+  res.json(r);
+});
+
 // SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));

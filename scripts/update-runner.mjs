@@ -222,10 +222,26 @@ function restartStrategy() {
     if (unit) return { kind: 'systemd', unit };
   }
   if (has('pm2')) {
+    // Require PROOF that pm2 manages this install: a clean exit, parseable
+    // JSON, and an entry whose script path lives inside ROOT.
+    //
+    // A substring match on raw output is not proof. pm2's own error text
+    // ("Permission denied" on the rpc socket, common in containers) can
+    // contain the install path, which previously selected the pm2 strategy
+    // for a panel pm2 has never managed — the restart then failed and left
+    // the panel down.
     const list = spawnSync('pm2', ['jlist'], { encoding: 'utf8' });
-    if (list.status === 0 && /vps-manager/.test(list.stdout || '')) {
-      return { kind: 'pm2', name: 'vps-manager' };
+    if (list.status === 0) {
+      try {
+        const apps = JSON.parse(list.stdout || '[]');
+        const mine = Array.isArray(apps) && apps.find(a => {
+          const script = a?.pm2_env?.pm_exec_path || a?.pm2_env?.pm_cwd || '';
+          return script && path.resolve(script).startsWith(path.resolve(ROOT));
+        });
+        if (mine?.name) return { kind: 'pm2', name: mine.name };
+      } catch {}
     }
+    log('pm2 present but does not manage this install; not using it to restart');
   }
   const script = path.join(ROOT, 'start-panel.sh');
   // A start script shipped in the release may hardcode the path of the machine
@@ -536,8 +552,18 @@ async function main() {
     if (finalStrategy.kind !== strategy.kind) {
       log(`restart strategy changed after swap: ${strategy.kind} -> ${finalStrategy.kind}`);
     }
-    startPanel(finalStrategy);
-    const live = await waitForHttp(PORT, 60_000, canVerifyVersion);
+    // A restart command that THROWS must still reach the rollback below.
+    // Previously a failing `pm2 restart` propagated out of main() and aborted
+    // the run, leaving the new files in place and nothing listening — the one
+    // failure mode that actually cost uptime.
+    let restartError = null;
+    try { startPanel(finalStrategy); }
+    catch (err) {
+      restartError = err?.message || String(err);
+      log(`restart command failed: ${restartError}`);
+    }
+
+    const live = await waitForHttp(PORT, restartError ? 20_000 : 60_000, canVerifyVersion);
 
     // Answering is not enough. It must be a DIFFERENT process than the one
     // serving before the swap: /api/version reports the version captured at
@@ -557,14 +583,25 @@ async function main() {
     if (!live || wrongVersion || sameProcess) {
       // ── rollback ──
       log('panel did not come back; rolling back');
+      // Whatever strategy was chosen has just demonstrably failed, so reusing
+      // it for the recovery is how a failed update becomes a dead panel.
+      const recovery = restartError && finalStrategy.kind !== 'node'
+        ? { kind: 'node' }
+        : finalStrategy;
       stopPanel();
       await new Promise(r => setTimeout(r, 2000));
       waitForPortFree(PORT);
       run('sh', ['-c',
         `cd ${JSON.stringify(BACKUP)} && tar -cf - . | (cd ${JSON.stringify(ROOT)} && tar -xf -)`
       ]);
-      startPanel(finalStrategy);
-      const back = await waitForHttp(PORT, 60_000, false);
+      try { startPanel(recovery); }
+      catch (err) { log(`rollback restart failed: ${err?.message || err}`); }
+      let back = await waitForHttp(PORT, 60_000, false);
+      if (!back && recovery.kind !== 'node') {
+        log('rollback restart did not answer; retrying with a direct node start');
+        try { startPanel({ kind: 'node' }); } catch {}
+        back = await waitForHttp(PORT, 45_000, false);
+      }
       rmrf(STAGING);
       return finish(false,
         back ? 'New version did not start; previous version restored.'

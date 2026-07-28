@@ -353,8 +353,22 @@ function readStatus() {
     if (s.running && Date.now() - (s.startedAt || 0) > 45 * 60 * 1000) {
       return { ...s, running: false, ok: false, error: 'Update timed out' };
     }
+    // A finished run is history, not current state. Reporting a failure from
+    // hours ago as though it were live is how the panel ends up insisting it
+    // is broken while serving perfectly well.
+    if (!s.running && s.finishedAt && Date.now() - s.finishedAt > 24 * 3600 * 1000) {
+      return null;
+    }
     return s;
   } catch { return null; }
+}
+
+/** Clear the finished-run record. Refuses while an update is in flight. */
+function clearStatus() {
+  const s = readStatus();
+  if (s?.running) return { cleared: false, reason: 'An update is still running' };
+  try { fs.unlinkSync(STATUS_FILE); } catch {}
+  return { cleared: true };
 }
 
 /**
@@ -405,6 +419,7 @@ module.exports = {
   check,
   readCache,
   readStatus,
+  clearStatus,
   startUpdate,
   shouldNotify,
   startBackgroundChecks,
