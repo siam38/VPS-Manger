@@ -42,7 +42,23 @@ const BACKUP = path.join(PARENT, `.${NAME}-backup`);
 const STATUS_FILE = path.join(ROOT, 'server', 'update-status.json');
 const LOG_FILE = path.join(os.tmpdir(), 'vps-manager-update.log');
 const PROBE_PORT = 48999;
-const PORT = process.env.PORT || 48292;
+
+/**
+ * The port THIS install serves on.
+ *
+ * Deliberately read from the target's own .env rather than process.env: the
+ * runner inherits the environment of whatever launched it, and trusting that
+ * means health-checking a different panel than the one being updated — which
+ * returns a pass from an unrelated process and defeats the rollback entirely.
+ */
+const PORT = (() => {
+  try {
+    const raw = fs.readFileSync(path.join(ROOT, '.env'), 'utf8');
+    const m = /^\s*PORT\s*=\s*(\d+)/m.exec(raw);
+    if (m) return Number(m[1]);
+  } catch {}
+  return Number(process.env.PANEL_PORT) || 48292;
+})();
 
 // Files that belong to THIS machine, not to the release. They survive the swap.
 const PRESERVE = [
@@ -149,8 +165,16 @@ function download(url, dest, redirects = 0) {
   });
 }
 
-/** Wait for an HTTP 200 from a port, polling until timeout. */
-function waitForHttp(port, timeoutMs = 60_000) {
+/**
+ * Wait for a port to respond.
+ *
+ * `strict` demands a JSON body with a version field. That matters after the
+ * restart, where a leftover process could answer and be mistaken for a healthy
+ * update. It is deliberately NOT used for the staged probe: there we spawned
+ * the process ourselves on a scratch port, so merely listening proves it boots,
+ * and a release that predates the version endpoint must still be installable.
+ */
+function waitForHttp(port, timeoutMs = 60_000, strict = true) {
   const deadline = Date.now() + timeoutMs;
   return new Promise(resolve => {
     const tick = () => {
@@ -161,8 +185,13 @@ function waitForHttp(port, timeoutMs = 60_000) {
           res.on('data', c => { body += c; });
           res.on('end', () => {
             if (res.statusCode === 200) {
-              try { return resolve(JSON.parse(body)); } catch { return resolve({ ok: true }); }
+              try {
+                const parsed = JSON.parse(body);
+                if (parsed && typeof parsed.version === 'string') return resolve(parsed);
+              } catch {}
             }
+            // Listening but without a usable version endpoint.
+            if (!strict && res.statusCode > 0) return resolve({ version: null, legacy: true });
             retry();
           });
         }
@@ -199,20 +228,122 @@ function restartStrategy() {
     }
   }
   const script = path.join(ROOT, 'start-panel.sh');
-  if (fs.existsSync(script)) return { kind: 'script', script };
+  // A start script shipped in the release may hardcode the path of the machine
+  // it was written on. Accept it only if it resolves its own directory or cds
+  // to this install; a literal path belonging elsewhere would start the wrong
+  // panel entirely.
+  if (fs.existsSync(script)) {
+    try {
+      const body = fs.readFileSync(script, 'utf8');
+      const cd = /^\s*cd\s+(.+)$/m.exec(body);
+      const raw = cd ? cd[1].trim().replace(/\s*\|\|.*$/, '') : null;
+      const dynamic = raw ? /\$\(|BASH_SOURCE|\$\{?0/.test(raw) : false;
+      const target = raw ? raw.replace(/^["']|["']$/g, '') : null;
+      if (!raw || dynamic || path.resolve(target) === path.resolve(ROOT)) {
+        return { kind: 'script', script };
+      }
+      log(`ignoring start-panel.sh: it cds to ${target}, not ${ROOT}`);
+    } catch {}
+  }
   return { kind: 'node' };
 }
 
+/**
+ * Stop the panel by whoever is holding the port.
+ *
+ * Matching the process by command line is unreliable: the panel is usually
+ * started via a script that `cd`s first, so argv reads `server/index.cjs`
+ * relative and an absolute-path match finds nothing. Failing to kill it then
+ * turns the post-restart health check into a false positive, because the OLD
+ * process answers and the update reports success. Port ownership is the fact
+ * that actually matters here.
+ */
 function stopPanel() {
-  // Kill by PID only. A pattern kill can match the updater's own command line.
+  const pids = listenersOn(PORT);
+  for (const pid of pids) {
+    if (pid === process.pid) continue;
+    try { process.kill(pid, 'SIGTERM'); } catch {}
+  }
+  return pids.length;
+}
+
+/** PIDs listening on a TCP port, via whichever tool this host has. */
+function listenersOn(port) {
+  const tries = [
+    ['sh', ['-c', `fuser -n tcp ${port} 2>/dev/null`]],
+    ['sh', ['-c', `lsof -ti tcp:${port} -sTCP:LISTEN 2>/dev/null`]],
+    ['sh', ['-c', `ss -tlnpH 'sport = :${port}' 2>/dev/null | grep -oP 'pid=\\K[0-9]+'`]],
+  ];
+  for (const [cmd, args] of tries) {
+    const out = spawnSync(cmd, args, { encoding: 'utf8' }).stdout || '';
+    const pids = [...new Set(out.match(/\d+/g) || [])].map(Number).filter(Boolean);
+    if (pids.length) return pids;
+  }
+  // Last resort: read /proc directly. Minimal containers ship none of the
+  // tools above, and silently returning "nobody is listening" is the worst
+  // possible answer here — it lets a stale process survive the swap and then
+  // answer the health check in place of the new build.
+  return listenersFromProc(port);
+}
+
+/** Resolve port -> inode from /proc/net/tcp*, then inode -> pid via /proc/<pid>/fd. */
+function listenersFromProc(port) {
+  const inodes = new Set();
+  for (const f of ['/proc/net/tcp', '/proc/net/tcp6']) {
+    let text;
+    try { text = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    for (const line of text.split('\n').slice(1)) {
+      const cols = line.trim().split(/\s+/);
+      if (cols.length < 10) continue;
+      const localPort = parseInt((cols[1] || '').split(':')[1], 16);
+      if (localPort !== Number(port)) continue;
+      if (cols[3] !== '0A') continue; // 0A = TCP_LISTEN
+      inodes.add(cols[9]);
+    }
+  }
+  if (!inodes.size) return [];
+
+  const pids = [];
+  let entries = [];
+  try { entries = fs.readdirSync('/proc'); } catch { return []; }
+  for (const name of entries) {
+    if (!/^\d+$/.test(name)) continue;
+    let fds = [];
+    try { fds = fs.readdirSync(`/proc/${name}/fd`); } catch { continue; } // not ours
+    for (const fd of fds) {
+      let link;
+      try { link = fs.readlinkSync(`/proc/${name}/fd/${fd}`); } catch { continue; }
+      const m = /^socket:\[(\d+)\]$/.exec(link);
+      if (m && inodes.has(m[1])) { pids.push(Number(name)); break; }
+    }
+  }
+  return [...new Set(pids)];
+}
+
+/** Block until nothing is listening on the port, so the replacement cannot
+ *  fail with EADDRINUSE and leave the stale process serving. */
+function waitForPortFree(port, timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const pids = listenersOn(port);
+    if (!pids.length) return true;
+    for (const pid of pids) { try { process.kill(pid, 'SIGKILL'); } catch {} }
+    spawnSync('sleep', ['1']);
+  }
+  return listenersOn(port).length === 0;
+}
+
+/** Environment variables from an install's .env file. */
+function envFrom(dir) {
+  const out = {};
   try {
-    const out = spawnSync('sh', ['-c',
-      `ps -eo pid,args | grep -F '${path.join(ROOT, 'server/index.cjs')}' | grep -v grep | awk '{print $1}'`
-    ], { encoding: 'utf8' }).stdout || '';
-    const pids = out.trim().split('\n').filter(Boolean);
-    for (const pid of pids) { try { process.kill(Number(pid), 'SIGTERM'); } catch {} }
-    return pids.length;
-  } catch { return 0; }
+    const raw = fs.readFileSync(path.join(dir, '.env'), 'utf8');
+    for (const line of raw.split('\n')) {
+      const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+      if (m) out[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+    }
+  } catch {}
+  return out;
 }
 
 function startPanel(strategy) {
@@ -223,10 +354,21 @@ function startPanel(strategy) {
     ? ['sh', [strategy.script]]
     : ['node', [path.join(ROOT, 'server', 'index.cjs')]];
 
+  // The start script sources .env itself. Passing an inherited PORT through
+  // would override it and bind the wrong port. When starting node directly
+  // there is no script to source it, so .env must be loaded here — the server
+  // refuses to boot without PASSWORD/JWT_SECRET.
+  const childEnv = { ...process.env };
+  delete childEnv.PORT;
+  if (strategy.kind === 'node') Object.assign(childEnv, envFrom(ROOT));
+
   // Detached and fully redirected: the child must outlive this process.
+  // cwd is forced to ROOT because a start script may `cd` to a path that was
+  // correct on the machine that authored it, not on this one.
   const child = spawn(cmd[0], cmd[1], {
     cwd: ROOT,
     detached: true,
+    env: childEnv,
     stdio: ['ignore', fs.openSync(LOG_FILE, 'a'), fs.openSync(LOG_FILE, 'a')],
   });
   child.unref();
@@ -244,7 +386,13 @@ async function main() {
 
     if (fs.existsSync(path.join(ROOT, '.git'))) {
       const dirty = spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).stdout || '';
-      const real = dirty.trim().split('\n').filter(Boolean);
+      // The runner writes its own status file inside the tree, so it must not
+      // count itself as a local modification.
+      const OWN = ['server/update-status.json', 'server/update-status.json.tmp'];
+      const real = dirty.trim().split('\n').filter(Boolean).filter(line => {
+        const file = line.slice(3).trim().replace(/^"|"$/g, '');
+        return !OWN.includes(file);
+      });
       if (real.length) {
         return finish(false, `Working tree has ${real.length} uncommitted change(s). Commit or discard them first.`);
       }
@@ -312,25 +460,43 @@ async function main() {
 
     // ── 6. verify BEFORE touching the live install ──
     setStep('verify', 'Verifying the new build');
+
+    // The server refuses to boot without PASSWORD/JWT_SECRET. Those live in
+    // .env, and the runner's own environment may not carry them (a systemd
+    // host starts the panel with an EnvironmentFile, not an exported shell).
+    // Read them from the preserved .env rather than assuming inheritance.
+    const envFile = envFrom(STAGING);
+
     const probe = spawn('node', [path.join(STAGING, 'server', 'index.cjs')], {
       cwd: STAGING,
       detached: true,
-      env: { ...process.env, PORT: String(PROBE_PORT), NODE_ENV: 'production' },
+      env: { ...process.env, ...envFile, PORT: String(PROBE_PORT), NODE_ENV: 'production' },
       stdio: ['ignore', fs.openSync(LOG_FILE, 'a'), fs.openSync(LOG_FILE, 'a')],
     });
-    const probed = await waitForHttp(PROBE_PORT, 45_000);
+    const probed = await waitForHttp(PROBE_PORT, 45_000, false);
     try { process.kill(-probe.pid, 'SIGKILL'); } catch { try { probe.kill('SIGKILL'); } catch {} }
 
     if (!probed) {
       rmrf(STAGING);
       return finish(false, 'The new version failed to start. Nothing was changed.');
     }
-    log(`staged build answered: v${probed.version ?? '?'}`);
+    log(`staged build answered: v${probed.version ?? 'unknown (no version endpoint)'}`);
+    // Whether the post-restart check can confirm the version depends on the
+    // release actually exposing it.
+    const canVerifyVersion = !probed.legacy;
 
     // ── 7. swap ──
     setStep('swap', 'Installing the new version');
     stopPanel();
     await new Promise(r => setTimeout(r, 2500));
+    // The old process must be gone before the new one binds, or the restart
+    // fails with EADDRINUSE while the stale server keeps answering — which
+    // would make the health check below pass against the wrong process.
+    if (!waitForPortFree(PORT)) {
+      // Restoring is pointless: nothing has been swapped yet at this point
+      // only because we abort here. Bail before touching anything further.
+      return finish(false, `Could not stop the process holding port ${PORT}. Nothing was changed.`);
+    }
 
     // Replace tracked content in place; node_modules comes from staging too so
     // the dependency set always matches the code that was verified with it.
@@ -341,19 +507,36 @@ async function main() {
 
     // ── 8. restart ──
     setStep('restart', 'Restarting the panel');
-    startPanel(strategy);
-    const live = await waitForHttp(PORT, 60_000);
+    // The strategy was chosen before the swap, but the swap may have replaced
+    // start-panel.sh with the release's own copy — which can hardcode the path
+    // of the machine that authored it. Re-evaluate against what is on disk now.
+    const finalStrategy = restartStrategy();
+    if (finalStrategy.kind !== strategy.kind) {
+      log(`restart strategy changed after swap: ${strategy.kind} -> ${finalStrategy.kind}`);
+    }
+    startPanel(finalStrategy);
+    const live = await waitForHttp(PORT, 60_000, canVerifyVersion);
 
-    if (!live) {
+    // Answering is not enough: it must be the version we just installed, and
+    // it must expose the version endpoint at all. A leftover process from a
+    // previous run answers HTTP perfectly well and would otherwise be read as
+    // a healthy update.
+    const wrongVersion = canVerifyVersion && live && live.version !== state.toVersion;
+    if (wrongVersion) {
+      log(`health check returned ${live.version ? `v${live.version}` : 'no version field'}, expected v${state.toVersion}`);
+    }
+
+    if (!live || wrongVersion) {
       // ── rollback ──
       log('panel did not come back; rolling back');
       stopPanel();
       await new Promise(r => setTimeout(r, 2000));
+      waitForPortFree(PORT);
       run('sh', ['-c',
         `cd ${JSON.stringify(BACKUP)} && tar -cf - . | (cd ${JSON.stringify(ROOT)} && tar -xf -)`
       ]);
-      startPanel(strategy);
-      const back = await waitForHttp(PORT, 60_000);
+      startPanel(finalStrategy);
+      const back = await waitForHttp(PORT, 60_000, false);
       rmrf(STAGING);
       return finish(false,
         back ? 'New version did not start; previous version restored.'
