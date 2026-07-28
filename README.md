@@ -1,473 +1,199 @@
-<div align="center">
-
 # VPS Manager
 
-**A self-hosted control panel for managing a Linux VPS from the browser.**
+A self-hosted control panel for a Linux server. It replaces the usual loop —
+SSH in, run `htop`, `cd` around, `pm2 list`, `git pull` — with one authenticated
+page you can drive from a phone.
 
-System monitoring · file management · web terminal · process control · PM2 orchestration · Git sync
+It is single-user on purpose: one password, one operator, no roles or teams. That
+keeps the security surface small and the interface honest, because every control
+on screen acts on the machine immediately.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-14b8a6.svg?style=for-the-badge)](./LICENSE)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-14b8a6.svg?style=for-the-badge)](#development)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-FCC624.svg?style=for-the-badge&logo=linux&logoColor=black)](#requirements)
+It is also host-agnostic. Paths, the effective user, the SSH identity, the init
+system and PM2's home directory are detected at boot rather than hard-coded, so
+it behaves correctly whether it runs as `root` on Debian or as an unprivileged
+user on Ubuntu.
 
-### Built with
-
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
-
-[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A518-5FA04E?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
-[![Express](https://img.shields.io/badge/Express-4-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com)
-[![Socket.IO](https://img.shields.io/badge/Socket.IO-4-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://socket.io)
-[![PM2](https://img.shields.io/badge/PM2-2B037A?style=for-the-badge&logo=pm2&logoColor=white)](https://pm2.keymetrics.io)
-
-[![CodeMirror](https://img.shields.io/badge/CodeMirror-6-D30707?style=for-the-badge&logo=codemirror&logoColor=white)](https://codemirror.net)
-[![xterm.js](https://img.shields.io/badge/xterm.js-5-2C3E50?style=for-the-badge&logo=gnometerminal&logoColor=white)](https://xtermjs.org)
-[![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)](https://git-scm.com)
-[![Systemd](https://img.shields.io/badge/systemd-30B9DB?style=for-the-badge&logo=systemd&logoColor=white)](https://systemd.io)
-
-</div>
-
----
-
-## Table of contents
-
-- [Overview](#overview)
-- [Screenshots](#screenshots)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running in production](#running-in-production)
-- [Security model](#security-model)
-  - [Sessions](#sessions)
-- [API reference](#api-reference)
-- [Development](#development)
-- [Troubleshooting](#troubleshooting)
-- [License](#license)
-
----
-
-## Overview
-
-VPS Manager is a single-tenant web control panel for a Linux server. It replaces the
-common loop of *SSH in → run `htop` → `cd` around → `pm2 list` → `git pull`* with one
-authenticated interface.
-
-It is deliberately **single-user**: one password, one operator. There are no user
-accounts, roles, or teams. That keeps the security surface small and the UI honest —
-every control on screen acts on the machine immediately.
-
-It is also **host-agnostic**. Paths, the effective user, the SSH identity, the init
-system and PM2's home directory are all detected at boot rather than hard-coded, so
-the panel behaves correctly whether it runs as `root` on Debian or as a normal user
-on Ubuntu.
-
----
-
-## Screenshots
-
-### Dashboard
-
-Live CPU, memory, disk and load metrics over a WebSocket. Metric tiles stay neutral
-until a threshold is crossed (70 % warning, 90 % critical), so an idle server is calm
-and a struggling one is obvious. Charts auto-scale to the observed data window rather
-than a fixed 0–100 range.
+**Requirements:** Node 18+ (22 LTS recommended), npm 9+, git. PM2 and a build
+toolchain if you want the PM2 section and native `node-pty`.
 
 ![Dashboard](docs/screenshots/Dashboard.png)
 
-### File manager
-
-Browse, edit, upload, download, rename, copy and delete. Directory downloads are
-streamed as ZIP archives. Every file type gets its own icon and hue — a `.json`
-does not look like a `.js`, and `package.json` does not look like any other JSON
-file — so a directory is scannable at a glance. The address bar works like Windows
-Explorer: click the breadcrumb (or press `Ctrl+L`) to type or paste a path directly.
-
-![File manager](docs/screenshots/Files.png)
-
-On a phone the same list folds size and modified time into a secondary line, since
-there is no room for columns, and the toolbar collapses to New / Upload with
-everything else behind an overflow sheet.
-
-![File manager on mobile](docs/screenshots/Files-mobile.png)
-
-### Code editor
-
-CodeMirror 6 with on-demand grammars for ~40 languages, find and replace, code
-folding, bracket matching, autocomplete, adjustable font size, word wrap and
-optional auto-save. `Ctrl+S` (or `Cmd+S`) saves; `Ctrl+Enter` also works, because it
-is easier to reach on a phone.
-
-![Code editor](docs/screenshots/Editor.png)
-
-The editor is genuinely usable on mobile, which was the point of moving off Monaco.
-CodeMirror is `contenteditable`-based, so the OS provides native selection handles,
-caret dragging and IME instead of fighting a hidden textarea. The key bar along the
-bottom supplies the characters a phone keyboard hides — tab, braces, brackets,
-pipe, `$`, backtick — plus undo and redo.
-
-![Code editor on mobile](docs/screenshots/Editor-mobile.png)
-
-### Terminal
-
-Full PTY-backed terminal via `node-pty` and CodeMirror-era xterm.js, rebuilt for
-phones as well as desktops: multiple sessions, split panes, scrollback search,
-and a mobile key bar for the keys a virtual keyboard cannot produce.
-
-![Terminal](docs/screenshots/Terminal.png)
-
-On mobile, sticky `Ctrl`/`Alt` modifiers apply to the phone's own keyboard as
-well as the bar's buttons, so `Ctrl`+`C` actually interrupts a running process.
-The bar tracks the visual viewport, so it stays above the on-screen keyboard
-instead of being pushed underneath it.
-
-![Terminal on mobile](docs/screenshots/Terminal-mobile.png)
-
-### Processes
-
-Sortable live process table with CPU/memory thresholds and signal-aware process
-termination.
-
-![Processes](docs/screenshots/Processes.png)
-
-### PM2
-
-Start, stop, restart, reload, delete and inspect PM2 applications. Logs stream over
-WebSocket into a single docked panel rather than expanding inline under each card.
-Stopped applications show `—` for CPU, memory and uptime instead of counting upward
-from a stale `pm_uptime`.
-
-![PM2](docs/screenshots/PM2.png)
-
-Boot persistence is reported as three separate facts, because "will my app come back
-after a reboot?" is three questions and conflating them is how processes get lost:
-whether the PM2 daemon starts at boot, whether the process list has been saved, and
-whether an individual app restarts on crash. The panel reads PID 1 directly rather
-than trusting `pm2 startup`, which reports success on hosts where it does nothing.
-
-The **New application** wizard walks from folder → script → options → review. Only the
-name is required; memory limits, scheduled restarts, node arguments and environment
-variables live behind an *Advanced* drawer that shows a count when anything inside it
-is set.
-
-<p align="center">
-  <img src="docs/screenshots/PM2-mobile.png" width="32%" alt="PM2 on mobile" />
-</p>
-
-### Git sync
-
-Manage repositories on disk: stage, commit, pull, push, branch, tag, stash and resolve
-merges. Connects to GitHub over a generated deploy key and can auto-restart PM2 apps
-when code updates.
-
-![Git sync](docs/screenshots/GitSync.png)
-
-### Mobile
-
-Every section is a first-class mobile view — no horizontal scrolling at 390 px.
-
-<p align="center">
-  <img src="docs/screenshots/Files-mobile.png" width="30%" alt="Files on mobile" />
-  <img src="docs/screenshots/Editor-mobile.png" width="30%" alt="Code editor on mobile" />
-  <img src="docs/screenshots/Dashboard-mobile.png" width="30%" alt="Dashboard on mobile" />
-</p>
-
 ---
 
-## Features
-
-<details open>
-<summary><strong>Sessions &amp; sign-in</strong></summary>
-
-- **Stay signed in for 30 days** — tokens renew silently in the background, so a
-  long editing session is never interrupted by an expiry
-- Renewal also fires on tab focus and network recovery, which is what makes a
-  closed laptop lid or a sleeping phone survive the gap
-- Rotating refresh tokens in an `httpOnly` cookie, hashed at rest, with replay
-  detection and server-side revocation — see [Sessions](#sessions)
-- Sign out ends the session on the server and across every open tab
-
-</details>
-
-<details open>
-<summary><strong>System monitoring</strong></summary>
-
-- Live CPU, memory, disk and network throughput pushed over Socket.IO
-- Rolling 60-sample history with auto-scaled sparklines
-- Load average shown against core count, flagged when sustained
-- Grouped system actions: **Inspect** (read-only), **Maintain** (safe), **Restart services** (interrupting)
-
-</details>
-
-<details open>
-<summary><strong>File management</strong></summary>
-
-- Path-jailed browsing across allow-listed roots
-- List and grid views, sortable by name, size, type or modified time
-- **Per-type file icons** with distinct glyph *and* hue for every language family,
-  plus exact-filename overrides (`package.json`, `Dockerfile`, `.gitignore`, lock files)
-- **Editable address bar** — click the breadcrumb or press `Ctrl+L` to type or paste a path
-- **OpenClaw workspace auto-detection** — scans the allowed roots for `.openclaw`
-  installs and ranks them by content, instead of hard-coding one user's home
-- CodeMirror 6 editing with on-demand grammars for ~40 languages
-- Mobile-first editor: native selection, key bar, adjustable font, word wrap,
-  optional auto-save, find and replace
-- Inline preview for images (zoom/rotate), audio, video and PDF
-- Multi-file upload (100 MB per file) with real progress, plus drag and drop
-- ZIP directory download
-- Copy, move, rename, delete, create file/folder, hidden-file toggle
-- Range select with shift-click; keyboard shortcuts for copy, cut, paste, delete,
-  select-all, filter and refresh
-
-</details>
-
-<details open>
-<summary><strong>Terminal</strong></summary>
-
-- Real PTY sessions with multiple concurrent tabs and desktop split panes
-- Sessions spawn in the effective user's real home directory
-- Shell environment is isolated from the panel's own config, so `PASSWORD`,
-  `JWT_SECRET` and `PORT` never leak into a session
-- Mobile key bar: `Ctrl`, `Alt`, `Esc`, `Tab`, arrows, `^C`/`^D`/`^L` and shell
-  punctuation, on a 44px touch grid
-- Sticky modifiers shared with the device keyboard, so `Ctrl`+`C` works when the
-  letter is typed on the phone rather than tapped in the bar
-- Keyboard-aware layout via the VisualViewport API
-- Scrollback search, adjustable text size, quick-command palette
-- WebGL rendering with automatic canvas fallback
-- Live tab titles from the shell's own OSC title, plus reconnect/exit states
-- Automatic fit/resize propagation to the server
-- Web-link detection
-
-</details>
-
-<details open>
-<summary><strong>Process control</strong></summary>
-
-- Live `ps`-backed table, sortable on PID, CPU, memory and command
-- Threshold colouring for CPU/memory pressure
-- Signal selection when terminating
-
-</details>
-
-<details open>
-<summary><strong>PM2 orchestration</strong></summary>
-
-- Full lifecycle: start, stop, restart, reload, delete, flush, reset
-- **Four-step "new app" wizard** — folder → script → options → review, with directory
-  browsing and detected project files. Only the name is required; memory limits,
-  scheduled restarts, node arguments and environment variables sit behind an
-  *Advanced* drawer that reports how many are set
-- Live log streaming into one docked panel, with search and filtering
-- **Honest boot persistence** — reports whether the daemon starts at boot, whether the
-  process list is saved, and whether each app restarts on crash, as three separate
-  facts. Reads PID 1 rather than trusting `pm2 startup`, and lists apps that are
-  running but missing from the saved dump
-- Per-app metrics, `save` / `resurrect` support; stopped apps report `—` rather than
-  counting uptime upward from a stale timestamp
-
-</details>
-
-<details open>
-<summary><strong>Git synchronisation</strong></summary>
-
-- Repository discovery with status, branch and commit history
-- Stage, commit, pull, push, discard, checkout
-- Branch and tag create/delete, stash push/pop
-- Merge with conflict status and abort
-- GitHub setup via generated SSH deploy key
-- Background sync daemon with per-repo enable/disable
-
-</details>
-
-<details open>
-<summary><strong>Interface</strong></summary>
-
-- **Signature footer** on every page, and in the sidebar rail on the full-height
-  Terminal and Files views where a footer below the pane would break the layout
-- **Version and host in the sidebar**, so what is actually deployed is on screen
-  rather than requiring a shell. The version is injected from `package.json` at
-  build time — it cannot drift from the release that shipped
-- **Two-column sign-in** on desktop stating what the panel manages, collapsing to
-  a compact header on mobile where a marketing column would only be an obstacle
-- Accent colour is interaction-only; semantic colours are reserved for state
-
-</details>
-
----
-
-## Architecture
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  Browser                                                     │
-│  React 18 · TypeScript · Tailwind · Vite                     │
-│  Route-level code splitting (React.lazy)                     │
-└───────────────┬──────────────────────────┬───────────────────┘
-                │ REST (bearer, auto-renewed)  │ Socket.IO (token handshake)
-┌───────────────▼──────────────────────────▼───────────────────┐
-│  Express server  (server/index.cjs)                          │
-│  helmet · rate limiting · path jail · audit log              │
-├──────────────────────────────────────────────────────────────┤
-│  node-pty      │  PM2 CLI   │  git CLI   │  fs / os          │
-└──────────────────────────────────────────────────────────────┘
-```
-
-**Stack**
-
-| Layer | Technology |
-|---|---|
-| UI | React 18, React Router 7, Tailwind CSS 3 |
-| Editor / terminal | CodeMirror 6, xterm.js 5 |
-| Build | Vite 6, TypeScript 5.6 |
-| Server | Express 4, Socket.IO 4 |
-| Process/PTY | node-pty, PM2 |
-| Security | helmet, express-rate-limit, jsonwebtoken |
-
-**Frontend layout**
-
-```
-src/
-├── components/     Layout shell, Footer, Git-sync wizard,
-│                   CodeEditor / FileEditor / FilePreview, files/FileRow
-├── lib/            api.ts (fetch + 401 replay), auth.ts (token lifecycle),
-│                   socket.ts, utils.ts, toast.tsx,
-│                   fileTypes.ts, editorTheme.ts, editorLanguages.ts
-├── pages/          Dashboard, FileManager, Terminal, Processes,
-│                   PM2Manager, GitSync, Login
-├── index.css       Design tokens + component primitives
-└── App.tsx         Auth gate, error boundary, toast provider, lazy routes
-```
-
-**Server layout**
-
-```
-server/
-├── index.cjs       Routes, Socket.IO, PTY, auth middleware
-├── platform.cjs    Boot-time host detection (user, homes, init system, PM2_HOME)
-├── sessions.cjs    Refresh-token store: rotation, reuse detection, revocation
-└── sessions.json   Hashed refresh tokens, mode 0600, gitignored
-```
-
-Pages are lazy-loaded, so xterm and the heavier managers are fetched only when their
-route is visited. The editor is split out again below the route: browsing a folder
-costs ~53 KB, and CodeMirror is only downloaded when you actually open a file.
-Language grammars load individually on demand, so editing a `.sh` file never fetches
-the TypeScript parser.
-
----
-
-## Requirements
-
-| Requirement | Version | Notes |
-|---|---|---|
-| Node.js | ≥ 18 (22 LTS recommended) | Required by `node-pty` and `archiver` |
-| npm | ≥ 9 | |
-| PM2 | latest | `npm install -g pm2` — needed for the PM2 section |
-| Git | ≥ 2.30 | Needed for the Git Sync section |
-| Build toolchain | `build-essential`, `python3` | `node-pty` compiles native bindings |
-
-On Debian/Ubuntu:
-
-```bash
-sudo apt update && sudo apt install -y build-essential python3 git
-npm install -g pm2
-```
-
----
-
-## Installation
-
-**1 — Clone**
+## Install
 
 ```bash
 git clone https://github.com/siam38/VPS-Manger.git
 cd VPS-Manger
+NODE_ENV=development npm install --include=dev
 ```
 
-**2 — Install dependencies**
-
-```bash
-npm install
-```
-
-> **Note**
-> If `NODE_ENV=production` is exported in your shell, npm will silently skip
-> devDependencies and the build will fail with `vite: not found`. Install with:
-> ```bash
-> NODE_ENV=development npm install --include=dev
-> ```
-
-**3 — Configure** — create `.env` in the project root (see [Configuration](#configuration)).
-
-**4 — Build the frontend**
-
-```bash
-npm run build
-```
-
-**5 — Start**
-
-```bash
-npm start
-```
-
-Open `http://<server-ip>:48292` and sign in with your `PASSWORD`.
-
----
-
-## Configuration
+The explicit `NODE_ENV` matters. If `NODE_ENV=production` is exported in your
+shell — common on a server — npm silently skips devDependencies, and the build
+then dies with `vite: not found`.
 
 Create `.env` in the project root:
 
 ```env
 PORT=48292
-PASSWORD=change_this_to_a_long_random_password
-JWT_SECRET=change_this_to_a_long_random_secret
+PASSWORD=a_long_random_password
+JWT_SECRET=a_long_random_secret
 ```
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `PORT` | no | `48292` | Listening port |
-| `PASSWORD` | **yes** | — | Sign-in password. The server refuses to start without it. |
-| `JWT_SECRET` | **yes** | — | Signing key for session tokens. Rotating it invalidates all sessions. |
-
-Generate strong values:
 
 ```bash
 openssl rand -base64 32   # PASSWORD
 openssl rand -hex 48      # JWT_SECRET
 ```
 
-**Filesystem access** is restricted to an allow-list defined in `server/index.cjs`:
+Then build and start:
+
+```bash
+npm run build
+npm start
+```
+
+Open `http://<server-ip>:48292` and sign in.
+
+| Variable | Required | Default | Notes |
+|---|---|---|---|
+| `PORT` | no | `48292` | Listening port |
+| `PASSWORD` | **yes** | — | The server refuses to boot without it |
+| `JWT_SECRET` | **yes** | — | Changing it invalidates every access token |
+
+Filesystem access is confined to an allow-list in `server/index.cjs`:
 
 ```js
 const ALLOWED_BASES = ['/root', '/var/www', '/home', '/opt', '/tmp'];
 ```
 
-Every path is resolved and verified against these roots, so `../` traversal outside them
-is rejected. Edit this list to widen or tighten access.
+Every path is resolved and checked against those roots, so `../` traversal out of
+them is rejected. Edit the list to widen or tighten reach.
+
+---
+
+## Updating
+
+The panel updates itself. It talks to the GitHub API over anonymous HTTPS and
+nothing else — no token is ever stored on a VPS, no SSH key is involved, and it
+does not touch your git remote. Any box with outbound 443 can update.
+
+From **Settings**, the panel shows the new version, the commits since yours
+grouped by type, and three choices: install, snooze, or skip. Snooze and skip are
+stored on the server, so dismissing on your phone is honoured on the desktop.
+
+### What happens when you click install
+
+The order is deliberate — everything that can fail is done *before* the running
+panel is touched:
+
+1. **Refuse on a dirty tree.** Local edits are never silently eaten.
+2. **Back up** the current install.
+3. **Download and build** into a staging directory. The live panel is untouched,
+   so a broken build or a bad dependency costs nothing.
+4. **Boot the staged build on a scratch port** and require a real HTTP answer. A
+   release that cannot serve is never promoted.
+5. **Swap** it into place and restart.
+6. **Health-check, and roll back automatically** if the new version does not come
+   up. Rollback is not a button someone has to find.
+
+Because most failure modes are caught at step 4, the common bad outcome is "the
+update refused", not "the panel is down".
+
+### Automatic installs
+
+Off by default, and it should usually stay that way — this panel typically runs as
+root, and a server restarting itself unattended should be a decision you actively
+make. Turn it on in Settings, optionally inside a maintenance window:
+
+```json
+{ "autoInstall": true, "autoInstallWindow": { "start": "03:00", "end": "05:00" } }
+```
+
+Windows wrap past midnight. Automatic installs honour snooze and skip exactly like
+the prompt does — turning it on changes *who clicks the button*, not *which
+versions are eligible*. Prereleases are never installed automatically, even on the
+beta channel. A failed install backs off for six hours before retrying the same
+version, so a broken release cannot reinstall itself on a loop.
+
+### Publishing a release
+
+Tagging is the whole process. There is no GitHub UI step and no personal access
+token:
+
+```bash
+npm run release -- 3.12.0
+```
+
+That bumps `package.json` **and** `package-lock.json` together, commits, tags and
+pushes. Use it rather than editing the version by hand: npm rewrites the
+lockfile's version field on every install, so if the two ever drift, a plain
+`npm install` dirties the tree by itself and step 1 above then blocks every future
+update on an install nobody touched.
+
+Releases are read first, with a fallback to plain tags, so a bare
+`git tag v3.12.0 && git push --tags` is a valid release. Release notes are used
+when they exist; otherwise the changelog is built from the commits.
+
+### Worth knowing
+
+- **The runner that performs an update is the one already installed.** A fix to
+  the update system itself only takes effect one update later.
+- **Offline, rate-limited and no-releases are states with reasons, not errors.**
+  An unreachable GitHub never affects the panel's own availability.
+- On systemd hosts the updater runs in its own transient scope, so stopping the
+  service to swap files cannot kill the process performing the swap.
+- After a successful update, git HEAD is moved to the installed tag. The swap
+  comes from a release tarball, which knows nothing about git, so without this
+  every changed file would look like a local modification and block the next
+  update.
 
 ---
 
 ## Running in production
 
-### With PM2
+### systemd
+
+```ini
+[Unit]
+Description=VPS Manager
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/vps-manager
+ExecStart=/usr/bin/node server/index.cjs
+EnvironmentFile=/opt/vps-manager/.env
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now vps-manager
+```
+
+### PM2
 
 ```bash
 pm2 start server/index.cjs --name vps-manager
 pm2 save
-pm2 startup          # run the printed command to persist across reboots
+pm2 startup          # then run the command it prints
 ```
 
-### Behind Nginx with TLS
+Be aware that `pm2 startup` decides your init system by looking for binaries on
+`PATH`, and reports success on hosts where it silently does nothing. The panel's
+PM2 page reads PID 1 instead and tells you the truth in three separate parts:
+whether the daemon starts at boot, whether the process list is saved, and whether
+each app restarts on crash.
 
-The panel speaks plain HTTP and ships no certificates by design. **Terminate TLS in
-front of it.** WebSocket upgrade headers are required or the terminal and live metrics
-will not connect.
+### Behind TLS
+
+The panel speaks plain HTTP and ships no certificates by design. **Terminate TLS
+in front of it.** The WebSocket upgrade headers are not optional — without them
+the terminal and live metrics never connect.
 
 ```nginx
 server {
@@ -481,7 +207,6 @@ server {
         proxy_pass http://127.0.0.1:48292;
         proxy_http_version 1.1;
 
-        # Required for Socket.IO
         proxy_set_header Upgrade    $http_upgrade;
         proxy_set_header Connection "upgrade";
 
@@ -490,7 +215,7 @@ server {
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        proxy_read_timeout 86400;   # keep long-lived terminals alive
+        proxy_read_timeout 86400;   # long-lived terminals
     }
 }
 ```
@@ -502,178 +227,258 @@ sudo ufw deny 48292
 sudo ufw allow 443/tcp
 ```
 
-A tunnel (Cloudflare Tunnel, Tailscale) works equally well and avoids exposing a public
-port at all.
+A tunnel (Cloudflare Tunnel, Tailscale) works just as well and avoids exposing a
+public port at all.
 
 ---
 
-## Security model
+## What it does
 
-**What is implemented**
+### Files
 
-- **Password authentication** with timing-safe comparison
-- **Persistent sessions** — a short-lived access token (15 min) paired with a
-  long-lived refresh token held in an `httpOnly`, `SameSite=Strict` cookie.
-  The browser renews silently in the background, so an active session never
-  interrupts you to retype the password. See [Sessions](#sessions).
-- **Refresh token rotation** with reuse detection — each refresh invalidates the
-  previous token, and replaying a spent one revokes the entire token family
-- **Server-side revocation** — signing out invalidates the session on the server,
-  not just in the browser
-- **Login rate limiting** plus per-IP lockout after repeated failures, with automatic expiry
-- **Path jail** — all filesystem operations resolve against `ALLOWED_BASES`
-- **`helmet`** security headers
-- **Audit log** (`server/audit.log`) recording auth attempts, file operations and system actions
-- **No credentials in URLs** — downloads authenticate via the `Authorization` header, so tokens never reach access logs or `Referer`
+![File manager](docs/screenshots/Files.png)
 
-**What you must provide**
+Path-jailed browsing across the allowed roots, in list or grid, sortable by name,
+size, type or modified time. Shift-click ranges, a full keyboard map, and an
+editable address bar (`Ctrl+L`) for typing or pasting a path.
 
-| Risk | Mitigation |
-|---|---|
-| Plain HTTP exposes the password and token | Terminate TLS in a reverse proxy or tunnel |
-| Panel reachable from the internet | Firewall the port; expose only through the proxy |
-| Full shell access by design | Treat the password as root-equivalent; use a long random value |
-| Access token stored in `localStorage` | Vulnerable to XSS, but expires in 15 minutes. The durable credential is the `httpOnly` refresh cookie, which JavaScript cannot read. Still, do not run untrusted third-party scripts on this origin. |
+Per-type icons give every language family its own glyph *and* hue, with
+exact-filename overrides for `package.json`, `Dockerfile`, `.gitignore` and lock
+files — a directory of mixed sources is readable at a glance instead of being a
+column of identical grey pages.
 
-### Sessions
+Uploads are multi-file with real progress and drag-and-drop; directories download
+as ZIP. Inline previews cover images (zoom/rotate), audio, video and PDF.
+
+### Editor
+
+![Code editor](docs/screenshots/Editor.png)
+
+CodeMirror 6 with on-demand grammars for around 40 languages, loaded individually
+— editing a `.sh` file never fetches the TypeScript parser.
+
+CodeMirror rather than Monaco specifically because of phones. Monaco renders text
+into a positioned overlay backed by a hidden textarea, so a mobile OS never sees a
+real editable region: no selection handles, no caret magnifier, and a virtual
+keyboard that fights the scroll model. CodeMirror is `contenteditable`, so
+selection, caret and IME are handled natively.
+
+![Code editor on mobile](docs/screenshots/Editor-mobile.png)
+
+### Terminal
+
+![Terminal](docs/screenshots/Terminal.png)
+
+Real PTY sessions, multiple tabs, split panes on desktop. Shells start in the
+effective user's actual home directory, and the shell environment is isolated from
+the panel's own — `PASSWORD`, `JWT_SECRET` and `PORT` never leak into a session.
+
+The mobile key bar carries the 24 characters a phone keyboard cannot produce:
+`Ctrl`, `Alt`, `Esc`, `Tab`, arrows, `^C`/`^D`/`^L` and shell punctuation. Sticky
+modifiers are shared with the device keyboard, so `Ctrl`+`C` works when you tap
+`Ctrl` and then type `c` on the phone's own keys.
+
+The layout tracks the VisualViewport API rather than `100dvh`, because `dvh` does
+not shrink for an on-screen keyboard — the key bar would slide underneath it
+exactly when you started typing.
+
+![Terminal on mobile](docs/screenshots/Terminal-mobile.png)
+
+### Processes and PM2
+
+![PM2](docs/screenshots/PM2.png)
+
+A live `ps`-backed table sortable on PID, CPU, memory and command, with signal
+selection when terminating.
+
+For PM2: the full lifecycle, live log streaming with search, per-app metrics, and
+a four-step wizard for new apps where only the name is required — memory limits,
+scheduled restarts, node arguments and environment variables sit behind an
+Advanced drawer that reports how many are set. Stopped apps show `—` rather than
+counting uptime upward from a stale timestamp.
+
+### Git
+
+![Git sync](docs/screenshots/GitSync.png)
+
+Repository discovery with status, branch and history. Stage, commit, pull, push,
+discard, checkout; branches and tags; stash push/pop; merge with conflict status
+and abort. GitHub is set up through a generated deploy key, and a background
+daemon can sync per-repo.
+
+### Dashboard
+
+Live CPU, memory, disk and network over Socket.IO, with a rolling 60-sample
+history and auto-scaled sparklines. Load average is shown against core count.
+
+Metric tiles stay neutral until a threshold is actually crossed, so an idle server
+looks calm and a struggling one is obvious. Colour means state and nothing else;
+the accent colour means "you can interact with this" and nothing else.
+
+### On a phone
+
+<div align="center">
+  <img src="docs/screenshots/Files-mobile.png" width="30%" alt="Files on mobile" />
+  <img src="docs/screenshots/Dashboard-mobile.png" width="30%" alt="Dashboard on mobile" />
+  <img src="docs/screenshots/PM2-mobile.png" width="30%" alt="PM2 on mobile" />
+</div>
+
+---
+
+## Sessions
+
+You stay signed in for 30 days, and long editing sessions are never interrupted.
 
 Earlier versions issued a single 30-minute JWT and never renewed it. Half an hour
-into editing a file, the next save returned 401 and dropped you back at the login
-form — mid-edit, with unsaved work. That is fixed.
+into editing a file, the next save returned 401 and dropped you at the login form
+with unsaved work. Simply lengthening that token would have traded an annoyance
+for a much bigger XSS blast radius, so the fix was to split it:
 
 | | Access token | Refresh token |
 |---|---|---|
 | Lifetime | 15 minutes | 30 days |
-| Stored in | `localStorage` (readable by scripts) | `httpOnly` cookie (**not** readable by scripts) |
-| Sent as | `Authorization: Bearer` header | Automatically, to `/api` only |
-| Rotates | On every renewal | On every use |
+| Stored in | `localStorage` — readable by scripts | `httpOnly` cookie — **not** readable by scripts |
+| Sent as | `Authorization: Bearer` | automatically, to `/api` only |
+| Rotates | on every renewal | on every use |
 
-The browser renews at ~80% of the access token's lifetime, and again whenever the
-tab regains focus or the network returns — background timers are throttled in
-hidden tabs and frozen on sleeping phones, so a timer alone would not survive a
-closed laptop lid. If a request still returns 401, the client refreshes once and
-replays it; concurrent 401s share a single refresh rather than stampeding.
+The browser renews at about 80% of the access token's life, and again when the tab
+regains focus or the network returns — background timers are throttled in hidden
+tabs and frozen on sleeping phones, so a timer alone would not survive a closed
+laptop lid. If a request still 401s, the client refreshes once and replays it;
+concurrent 401s share a single refresh instead of stampeding.
 
-The practical effect: **you stay signed in for 30 days without retyping the
-password**, and long editing sessions are never interrupted. What an attacker
-could lift from `localStorage` now expires in fifteen minutes.
+Rotation makes replay detectable: presenting an already-spent token outside a
+short grace window revokes every token descended from that login. The grace window
+exists because two tabs refreshing at the same instant legitimately present the
+same cookie, and logging someone out for using the app normally is not security.
 
-Refresh tokens are stored only as SHA-256 hashes in `server/sessions.json`
-(mode `0600`), so the file is not a set of usable credentials if it leaks. Sessions
-survive a server restart. Rotation makes replay detectable: presenting an
-already-spent token outside a short grace window revokes every token descended
-from that login.
+Refresh tokens are stored only as SHA-256 hashes in `server/sessions.json` (mode
+`0600`), so the file is not a set of usable credentials if it leaks. Sessions
+survive a restart.
 
-`POST /api/logout` revokes server-side. To end **every** session on all devices
-— after exposing the password, for example — call `POST /api/sessions/revoke-all`,
-or simply delete `server/sessions.json` and restart.
-
-> **Warning**
-> This panel grants terminal access to the host. Anyone who obtains the password
-> effectively has the privileges of the user running the server. Never expose it
-> directly to the public internet without TLS and network restrictions.
-
-**Dependency status.** `npm audit` reports 2 high advisories, both in
-`react-router`'s RSC server mode, which this SPA does not use — they are not reachable
-here. Every version at or below 7.17.0 carries a *reachable* open-redirect/XSS pair
-instead, so 7.18.1 is the safest available target. Running `npm audit fix --force` will
-downgrade you into the exploitable versions — don't.
-
-The `archiver` transitive chain is patched through pinned `overrides` in `package.json`
-(`brace-expansion`, `minimatch`, `glob`) rather than a major bump, because `archiver` 8
-is ESM-only and the server is CommonJS.
+`POST /api/logout` revokes server-side. To end every session on every device —
+after exposing the password, say — call `POST /api/sessions/revoke-all`, or delete
+`server/sessions.json` and restart.
 
 ---
 
-## API reference
+## Security
 
-All routes require `Authorization: Bearer <token>` except `POST /api/login` and
-`POST /api/refresh` (which authenticates via the refresh cookie instead, since it
-must work when the access token has already expired).
+**Implemented:** timing-safe password comparison; rotating refresh tokens with
+reuse detection and server-side revocation; login rate limiting with per-IP lockout
+and automatic expiry; the filesystem path jail; `helmet` headers; an audit log at
+`server/audit.log` covering auth, file operations and system actions; and no
+credentials in URLs — downloads authenticate by header, so tokens never reach
+access logs or `Referer`.
 
-<details>
-<summary><strong>Auth</strong></summary>
+**Yours to provide:**
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/login` | Exchange password for an access token; sets the refresh cookie |
-| `GET` | `/api/verify` | Validate the current access token |
-| `POST` | `/api/refresh` | Rotate the refresh cookie and issue a fresh access token |
-| `POST` | `/api/logout` | Revoke this session server-side and clear the cookie |
-| `GET` | `/api/sessions` | List active sign-ins |
-| `POST` | `/api/sessions/revoke-all` | Sign out every device |
+| Risk | Mitigation |
+|---|---|
+| Plain HTTP exposes the password and tokens | Terminate TLS in a proxy or tunnel |
+| Panel reachable from the internet | Firewall the port; expose only via the proxy |
+| Full shell access by design | Treat the password as root-equivalent |
+| Access token sits in `localStorage` | It expires in 15 minutes, and the durable credential is the `httpOnly` cookie — but do not run untrusted scripts on this origin |
 
-</details>
+> **This panel grants terminal access to the host.** Anyone with the password
+> effectively has the privileges of the user running the server. Never expose it
+> to the public internet without TLS and network restrictions.
 
-<details>
-<summary><strong>System</strong></summary>
+**On `npm audit`.** It reports 2 high advisories in `react-router`'s RSC server
+mode, which this SPA does not use — not reachable here. Every version at or below
+7.17.0 carries a *reachable* open-redirect/XSS pair instead, so 7.18.1 is the
+safest available target. **Running `npm audit fix --force` downgrades you into the
+exploitable versions.** The `archiver` chain is patched through pinned `overrides`
+rather than a major bump, because `archiver` 8 is ESM-only and the server is
+CommonJS.
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/system/info` | Host, platform, CPU model, uptime, IP |
-| `GET` | `/api/system/stats` | Point-in-time CPU/memory/disk/network |
-| `POST` | `/api/system/action/:action` | Run a maintenance or restart action |
-| `GET` | `/api/audit/logs` | Read the audit trail |
+---
 
-</details>
+## Architecture
 
-<details>
-<summary><strong>Files</strong></summary>
+The browser runs React 18 with route-level code splitting, talking to an Express
+server over REST for actions and Socket.IO for anything live — metrics, PTY
+streams, PM2 logs. The server shells out to `node-pty`, the PM2 CLI and the git
+CLI, and everything is wrapped in helmet, rate limiting, the path jail and the
+audit log.
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/files/list` | Directory listing |
-| `GET` | `/api/files/content` | Read a file |
-| `GET` | `/api/files/download` | Download file, or directory as ZIP |
-| `POST` | `/api/files/save` | Write a file |
-| `POST` | `/api/files/upload` | Multipart upload |
-| `POST` | `/api/files/mkdir` · `/rename` · `/copy` | Create, rename, copy |
-| `DELETE` | `/api/files/delete` | Delete |
+| Layer | Technology |
+|---|---|
+| UI | React 18, React Router 7, Tailwind 3 |
+| Editor / terminal | CodeMirror 6, xterm.js 5 |
+| Build | Vite 6, TypeScript 5.6 |
+| Server | Express 4, Socket.IO 4 |
+| Process / PTY | node-pty, PM2 |
+| Security | helmet, express-rate-limit, jsonwebtoken |
 
-</details>
+```
+src/
+├── components/   Layout shell, Footer, CodeEditor, FileEditor, FilePreview,
+│                 TerminalPane, UpdateModal, pm2/, git-sync/, files/
+├── lib/          api.ts (fetch + 401 replay), auth.ts (token lifecycle),
+│                 socket.ts, update.ts, toast.tsx, fileTypes.ts, editor*.ts
+├── pages/        Dashboard, FileManager, Terminal, Processes, PM2Manager,
+│                 GitSync, Settings, Login
+├── index.css     Design tokens and component primitives
+└── App.tsx       Auth gate, error boundary, toasts, lazy routes
 
-<details>
-<summary><strong>Processes &amp; PM2</strong></summary>
+server/
+├── index.cjs     Routes, Socket.IO, PTY, auth middleware
+├── platform.cjs  Boot-time host detection (user, homes, init system, PM2_HOME)
+├── sessions.cjs  Refresh-token store: rotation, reuse detection, revocation
+└── updater.cjs   Update detection, config, and launching the runner
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/processes/list` | Running processes |
-| `POST` | `/api/processes/kill` | Send a signal |
-| `GET` | `/api/pm2/list` | PM2 applications |
-| `GET` | `/api/pm2/app-detail/:name` · `/logs/:name` · `/monit/:name` | Inspect |
-| `POST` | `/api/pm2/restart` · `/reload` · `/delete` · `/flush` · `/reset` | Lifecycle |
-| `GET` | `/api/pm2/browse-dirs` | Directory picker for the new-app wizard |
+scripts/
+├── update-runner.mjs  Performs an update: stage, verify, swap, restart, roll back
+└── release.mjs        Version bump, tag and push
+```
 
-</details>
+Pages are lazy-loaded, so xterm and the heavier managers are only fetched when
+their route is visited. The editor splits out again below the route: browsing a
+folder costs about 53 KB, and CodeMirror downloads only when you open a file.
 
-<details>
-<summary><strong>Git</strong></summary>
+---
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/git/repos` · `/status` · `/info` · `/log` · `/diff` | Inspect |
-| `POST` | `/api/git/stage` · `/commit` · `/pull` · `/push` · `/discard` · `/checkout` | Core workflow |
-| `GET`/`POST` | `/api/git/branches` · `/branch/create` · `/branch/checkout` · `/branch/delete` | Branches |
-| `GET`/`POST`/`DELETE` | `/api/git/tags` · `/tag/create` · `/tag` | Tags |
-| `GET`/`POST` | `/api/git/stash/list` · `/stash` · `/stash/pop` | Stashes |
-| `GET`/`POST` | `/api/git/merge/status` · `/merge` · `/merge/abort` | Merges |
-| `GET`/`POST` | `/api/git/github/*` | Deploy-key setup, connection test, clone |
-| `GET`/`POST`/`DELETE` | `/api/git/sync/config` · `/sync/status` | Sync daemon |
+## API
 
-</details>
+Everything requires `Authorization: Bearer <token>` except `POST /api/login`,
+`POST /api/refresh` (which authenticates by cookie, since it must work once the
+access token has expired) and `GET /api/update/status` (so the browser can confirm
+the panel came back after a restart, when it may hold no valid token).
 
-<details>
-<summary><strong>WebSocket events</strong></summary>
+**Auth** — `POST /api/login` · `GET /api/verify` · `POST /api/refresh` ·
+`POST /api/logout` · `GET /api/sessions` · `POST /api/sessions/revoke-all`
 
-| Event | Direction | Purpose |
-|---|---|---|
-| `stats:subscribe` / `stats:unsubscribe` | client → server | Toggle the live metric stream |
-| `stats:update` | server → client | Metric payload |
-| `terminal:create` / `input` / `resize` / `destroy` | client → server | PTY lifecycle |
-| `terminal:data` | server → client | PTY output |
-| `pm2:logs:subscribe` / `unsubscribe` | client → server | Toggle log streaming |
+**System** — `GET /api/version` · `GET /api/system/info` · `GET /api/system/stats` ·
+`POST /api/system/action/:action` · `GET /api/audit/logs`
 
-</details>
+**Updates** — `GET /api/update/check` · `GET|POST /api/update/config` ·
+`POST /api/update/snooze` · `POST /api/update/skip` ·
+`POST /api/update/reset-dismissals` · `POST /api/update/apply` ·
+`GET /api/update/status` · `POST /api/update/status/clear`
+
+**Files** — `GET /api/files/list` · `/content` · `/download` ·
+`POST /api/files/save` · `/upload` · `/mkdir` · `/rename` · `/copy` ·
+`DELETE /api/files/delete`
+
+**Processes** — `GET /api/processes/list` · `POST /api/processes/kill`
+
+**PM2** — `GET /api/pm2/list` · `/app-detail/:name` · `/logs/:name` · `/monit/:name` ·
+`/boot-status` · `/browse-dirs` · `POST /api/pm2/restart` · `/reload` · `/delete` ·
+`/flush` · `/reset`
+
+**Git** — `GET /api/git/repos` · `/status` · `/info` · `/log` · `/diff` ·
+`POST /api/git/stage` · `/commit` · `/pull` · `/push` · `/discard` · `/checkout` ·
+branches, tags, stashes, merges under `/api/git/*` · `/api/git/github/*` for deploy
+keys and cloning · `/api/git/sync/config` for the daemon
+
+**WebSocket** — `stats:subscribe` / `stats:update` · `terminal:create` / `input` /
+`resize` / `destroy` / `terminal:data` · `pm2:logs:subscribe`
+
+`GET /api/version` reports a per-boot `bootId` and `pid` alongside the version, so
+a surviving process can be told apart from a freshly restarted one. The updater
+depends on that distinction: a stale server answers HTTP perfectly well and would
+otherwise read as a successful update.
 
 ---
 
@@ -683,27 +488,32 @@ must work when the access token has already expired).
 NODE_ENV=development npm install --include=dev
 
 npm run server     # API + WebSocket on :48292
-npm run dev        # Vite dev server with HMR, proxied to the API
+npm run dev        # Vite with HMR, proxying /api and /socket.io to it
 ```
-
-Vite proxies `/api` and `/socket.io` to port 48292, so both run side by side.
 
 | Script | Purpose |
 |---|---|
 | `npm run dev` | Frontend dev server with hot reload |
 | `npm run server` | Backend only |
-| `npm run build` | Production build to `dist/` |
+| `npm run build` | Production build into `dist/` |
 | `npm run preview` | Serve the production build locally |
+| `npm run release -- x.y.z` | Bump both version files, commit, tag, push |
 
-**Type checking.** Vite does not type-check during build, so run it explicitly:
+**Vite does not type-check.** A green build says nothing about type safety, so run
+it yourself — and use the local binary, since `npx tsc` installs an unrelated
+package:
 
 ```bash
-npx tsc --noEmit
+./node_modules/.bin/tsc --noEmit
 ```
 
-**Design tokens.** Colours, type scale and radii live in `tailwind.config.js`;
-component primitives (`.card`, `.btn`, `.pill`, `.row`, `.field`, `.empty`) live in
-`src/index.css`. Prefer these over ad-hoc utility strings so restyling stays global.
+The panel serves `dist/`, so a frontend change is live as soon as `vite build`
+finishes. Only server changes need a restart.
+
+Colours, type scale and radii live in `tailwind.config.js`; the component
+primitives (`.card`, `.btn`, `.pill`, `.row`, `.field`, `.empty`) live in
+`src/index.css`. Prefer them over ad-hoc utility strings so restyling stays a
+one-file change instead of a find-and-replace across thousands of lines.
 
 ---
 
@@ -711,21 +521,19 @@ component primitives (`.card`, `.btn`, `.pill`, `.row`, `.field`, `.empty`) live
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `vite: not found` during build | `NODE_ENV=production` made npm skip devDependencies | `NODE_ENV=development npm install --include=dev` |
-| Server exits with `PASSWORD environment variable is required` | Missing or unreadable `.env` | Create `.env` in the project root |
-| Terminal never connects | Proxy is dropping the WebSocket upgrade | Add `Upgrade` / `Connection` headers to the proxy config |
-| Metrics frozen after re-login | Stale socket from the previous session | Fixed in current versions; hard-refresh if it recurs |
-| `node-pty` fails to install | Missing native build toolchain | `apt install build-essential python3` |
-| PM2 section empty | PM2 not installed for the server's user | `npm install -g pm2` and confirm `pm2 list` works as that user |
-| Locked out after failed logins | Per-IP lockout triggered | Wait for expiry, or restart the server to clear it |
-| Signed out again after ~15 minutes | The refresh cookie is not reaching the server | It is scoped to `/api` and `SameSite=Strict`. Confirm the proxy forwards cookies and does not strip `Set-Cookie`, and that the panel is reached on one consistent origin |
-| Signed out after switching between `http://` and `https://` | The cookie's `Secure` flag follows the protocol it was issued on | Use one origin — sign in again on the one you intend to keep using |
-| Everyone signed out after a redeploy | `JWT_SECRET` changed, invalidating access tokens | Keep `JWT_SECRET` stable across deploys; sessions themselves survive restarts |
-| Want to force sign-out everywhere | Password exposed, or a device lost | `POST /api/sessions/revoke-all`, or delete `server/sessions.json` and restart |
+| `vite: not found` when building | `NODE_ENV=production` made npm skip devDependencies | `NODE_ENV=development npm install --include=dev` |
+| Server exits complaining about `PASSWORD` | Missing or unreadable `.env` | Create `.env` in the project root |
+| Terminal never connects | The proxy is dropping the WebSocket upgrade | Add the `Upgrade` / `Connection` headers |
+| `node-pty` fails to install | No native build toolchain | `apt install build-essential python3` |
+| PM2 page empty | PM2 not installed for the server's user | `npm i -g pm2`, and check `pm2 list` works as that user |
+| Locked out after failed logins | Per-IP lockout | Wait for expiry, or restart the server |
+| Signed out after ~15 minutes | The refresh cookie is not reaching the server | It is scoped to `/api` and `SameSite=Strict` — confirm the proxy forwards cookies and does not strip `Set-Cookie`, and use one consistent origin |
+| Signed out switching `http://` ↔ `https://` | The cookie's `Secure` flag follows the protocol it was issued on | Pick one origin and stay on it |
+| Everyone signed out after a redeploy | `JWT_SECRET` changed | Keep it stable across deploys; sessions themselves survive restarts |
+| Update refuses: "working tree has uncommitted changes" | Real local edits, by design | Commit or discard them. If you never edited anything, check that `package.json` and `package-lock.json` agree on the version |
+| Update ran but the version did not change | The restart did not take effect | Check `GET /api/version` for a new `bootId`; the panel rolls back automatically if the new build does not answer |
 
 ---
-
-## License
 
 MIT — see [LICENSE](./LICENSE).
 
