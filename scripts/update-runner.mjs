@@ -321,16 +321,31 @@ function listenersFromProc(port) {
 }
 
 /** Block until nothing is listening on the port, so the replacement cannot
- *  fail with EADDRINUSE and leave the stale process serving. */
+ *  fail with EADDRINUSE and leave the stale process serving.
+ *
+ *  A process owned by another user is invisible in /proc to a non-root caller,
+ *  so "no listeners found" is not proof the port is free. Confirm by actually
+ *  trying to bind it. */
 function waitForPortFree(port, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const pids = listenersOn(port);
-    if (!pids.length) return true;
     for (const pid of pids) { try { process.kill(pid, 'SIGKILL'); } catch {} }
+    if (!pids.length && canBind(port)) return true;
     spawnSync('sleep', ['1']);
   }
-  return listenersOn(port).length === 0;
+  return listenersOn(port).length === 0 && canBind(port);
+}
+
+/** Can we actually bind the port right now? The only trustworthy answer. */
+function canBind(port) {
+  const r = spawnSync(process.execPath, ['-e', `
+    const net = require('net');
+    const s = net.createServer();
+    s.once('error', () => process.exit(1));
+    s.listen({ port: ${port}, host: '::', ipv6Only: false }, () => s.close(() => process.exit(0)));
+  `], { encoding: 'utf8', timeout: 5000 });
+  return r.status === 0;
 }
 
 /** Environment variables from an install's .env file. */
@@ -485,6 +500,13 @@ async function main() {
     // release actually exposing it.
     const canVerifyVersion = !probed.legacy;
 
+    // Identify the process currently serving, so a survivor can be recognised
+    // even when it reports the same version. /api/version reports a per-boot
+    // id and pid precisely for this.
+    const before = await waitForHttp(PORT, 3000, false);
+    const beforeId = before?.bootId ?? null;
+    const beforePid = before?.pid ?? null;
+
     // ── 7. swap ──
     setStep('swap', 'Installing the new version');
     stopPanel();
@@ -517,16 +539,22 @@ async function main() {
     startPanel(finalStrategy);
     const live = await waitForHttp(PORT, 60_000, canVerifyVersion);
 
-    // Answering is not enough: it must be the version we just installed, and
-    // it must expose the version endpoint at all. A leftover process from a
-    // previous run answers HTTP perfectly well and would otherwise be read as
-    // a healthy update.
+    // Answering is not enough. It must be a DIFFERENT process than the one
+    // serving before the swap: /api/version reports the version captured at
+    // boot, so a stale process would otherwise report the newly-swapped
+    // version from disk and read as a healthy update.
+    const sameProcess = live && (
+      (beforeId && live.bootId && live.bootId === beforeId) ||
+      (beforePid && live.pid && live.pid === beforePid)
+    );
+    if (sameProcess) log(`health check answered by the pre-update process (pid ${live.pid}) — restart did not take effect`);
+
     const wrongVersion = canVerifyVersion && live && live.version !== state.toVersion;
     if (wrongVersion) {
       log(`health check returned ${live.version ? `v${live.version}` : 'no version field'}, expected v${state.toVersion}`);
     }
 
-    if (!live || wrongVersion) {
+    if (!live || wrongVersion || sameProcess) {
       // ── rollback ──
       log('panel did not come back; rolling back');
       stopPanel();

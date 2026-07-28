@@ -2273,10 +2273,17 @@ app.post('/api/update/reset-dismissals', authMiddleware, (req, res) => {
   res.json(updater.saveConfig({ snoozedUntil: null, skippedVersion: null }));
 });
 
+// Captured once at boot, not read per request. The updater's health check
+// compares this against the version it installed, and reading package.json
+// live would make a stale process report the NEW version the moment files are
+// swapped — turning a failed restart into a false success.
+const BOOT_VERSION = updater.currentVersion();
+const BOOT_ID = crypto.randomBytes(8).toString('hex');
+
 // Unauthenticated on purpose: the post-update health probe needs to confirm the
 // new build is answering before the old release directory is pruned.
 app.get('/api/version', (req, res) => {
-  res.json({ version: updater.currentVersion(), ok: true });
+  res.json({ version: BOOT_VERSION, bootId: BOOT_ID, pid: process.pid, ok: true });
 });
 
 // ─── Applying an update ───
