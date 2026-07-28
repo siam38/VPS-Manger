@@ -47,7 +47,15 @@ export default function Layout({ children, onLogout }: Props) {
   const fullBleed = location.pathname === '/terminal' || location.pathname === '/files';
 
   return (
-    <div className="min-h-[100dvh] lg:h-[100dvh] flex bg-canvas lg:overflow-hidden max-lg:flex-col">
+    <div
+      className="min-h-[100dvh] lg:h-[100dvh] flex bg-canvas lg:overflow-hidden max-lg:flex-col"
+      /* Docked overlays (the PM2 log dock) are position:fixed, so they anchor to
+         the viewport and know nothing about a sidebar sitting in normal flow.
+         Publish the rail width so they can inset themselves instead of sliding
+         underneath it. Below lg the rail is a fixed drawer, not in flow, so the
+         consumer zeroes this out itself. */
+      style={{ '--rail-w': collapsed ? '64px' : '14rem' } as React.CSSProperties}
+    >
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/70 z-40 lg:hidden"

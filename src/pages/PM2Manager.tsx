@@ -211,9 +211,12 @@ export default function PM2Manager() {
 
       {/* ── Body ───────────────────────────────────────────────────── */}
       <div
-        className="flex-1 overflow-auto p-3 sm:p-4 space-y-3"
-        // Keep the last row clear of the docked log panel.
-        style={{ paddingBottom: logApp ? 'calc(55vh + 1rem)' : undefined }}
+        className={`flex-1 overflow-auto p-3 sm:p-4 space-y-3 ${
+          // Keep the last row clear of the docked log panel. The dock is 55vh
+          // on small screens and 42vh from md up — one hardcoded value cannot
+          // match both, so this tracks the same breakpoint the panel uses.
+          logApp ? 'pb-[calc(55vh+1rem)] md:pb-[calc(42vh+1rem)]' : ''
+        }`}
       >
         {staleError && (
           <div className="flex items-start gap-2.5 rounded-card border border-danger/25 bg-danger/5 p-3">

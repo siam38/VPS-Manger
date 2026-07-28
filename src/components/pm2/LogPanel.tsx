@@ -33,6 +33,12 @@ const LEVELS: (LogLevel | 'all')[] = ['all', 'error', 'warn', 'info', 'debug', '
  *  - **Windowed rendering.** The old viewer rendered up to 1,000 <tr> rows
  *    with four cells each, re-rendering the whole table on every socket burst.
  *    Only the visible slice is mounted now.
+ *  - **Docked to the content column, not the viewport.** `position: fixed`
+ *    ignores the sidebar, which sits in normal flow at `lg` and up, so an
+ *    `inset-x-0` dock starts at x=0 and runs *underneath* the rail — the
+ *    counter, the filter icon and the first characters of every log line get
+ *    eaten. It is inset by `--rail-w` (published by Layout) at `lg`, and stays
+ *    full-width below that, where the rail is a fixed drawer rather than flow.
  */
 export function LogPanel({ appName, lines, onClear, onClose }: Props) {
   const [filter, setFilter] = useState('');
@@ -110,7 +116,8 @@ export function LogPanel({ appName, lines, onClear, onClose }: Props) {
 
   return (
     <div
-      className={`fixed inset-x-0 bottom-0 z-40 flex flex-col bg-canvas border-t border-line shadow-2xl animate-slide-up
+      className={`fixed right-0 bottom-0 z-40 flex flex-col bg-canvas border-t border-l border-line shadow-2xl animate-slide-up
+                  left-0 lg:left-[var(--rail-w,14rem)]
                   ${expanded ? 'top-0' : 'top-auto h-[55vh] md:h-[42vh]'}`}
       style={{ paddingBottom: kbInset ? 0 : undefined, bottom: kbInset }}
       role="region"
@@ -217,7 +224,7 @@ export function LogPanel({ appName, lines, onClear, onClose }: Props) {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="flex-1 overflow-auto bg-[#050a0a] font-mono text-[11px] leading-[18px]"
+        className="flex-1 overflow-y-auto overflow-x-hidden bg-[#050a0a] font-mono text-[11px] leading-[18px]"
         tabIndex={0}
         role="log"
         aria-live="polite"
@@ -242,7 +249,7 @@ export function LogPanel({ appName, lines, onClear, onClose }: Props) {
                   style={{ height: ROW_H }}
                 >
                   <span className="text-subtle/60 select-none shrink-0 tabular-nums">{line.timestamp}</span>
-                  <span className={`truncate ${LEVEL_TEXT[line.level]}`}>{stripAnsi(line.text)}</span>
+                  <span className={`truncate min-w-0 ${LEVEL_TEXT[line.level]}`}>{stripAnsi(line.text)}</span>
                 </div>
               ))}
             </div>
