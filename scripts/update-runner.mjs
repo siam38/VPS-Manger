@@ -494,6 +494,25 @@ function startPanel(strategy) {
   child.unref();
 }
 
+/**
+ * Is the only change to package-lock.json its `version` field?
+ *
+ * Compares the diff hunks rather than parsing: anything beyond version lines
+ * (a dependency added, a resolved URL changed) means real local work, which
+ * the dirty-tree guard should still refuse.
+ */
+function lockfileVersionOnly() {
+  const r = spawnSync('git', ['diff', '--unified=0', '--', 'package-lock.json'], {
+    cwd: ROOT, encoding: 'utf8', timeout: 30_000,
+  });
+  if (r.status !== 0) return false;
+  const changed = String(r.stdout || '')
+    .split('\n')
+    .filter(l => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l));
+  if (!changed.length) return false;
+  return changed.every(l => /^[+-]\s*"version":\s*"[^"]*",?\s*$/.test(l));
+}
+
 async function main() {
   try {
     fs.mkdirSync(path.dirname(STATUS_FILE), { recursive: true });
@@ -511,7 +530,16 @@ async function main() {
       const OWN = ['server/update-status.json', 'server/update-status.json.tmp'];
       const real = dirty.trim().split('\n').filter(Boolean).filter(line => {
         const file = line.slice(3).trim().replace(/^"|"$/g, '');
-        return !OWN.includes(file);
+        if (OWN.includes(file)) return false;
+        // npm rewrites package-lock.json's version field to match
+        // package.json on every install. If the two were ever committed out
+        // of sync, a plain `npm install` — step 2 of the documented install —
+        // dirties the tree by itself, and this guard then blocks every future
+        // update on a working install the operator never touched. A
+        // version-only drift in the lockfile is npm's bookkeeping, not local
+        // work worth protecting, so it is not a reason to refuse.
+        if (file === 'package-lock.json' && lockfileVersionOnly()) return false;
+        return true;
       });
       if (real.length) {
         return finish(false, `Working tree has ${real.length} uncommitted change(s). Commit or discard them first.`);
