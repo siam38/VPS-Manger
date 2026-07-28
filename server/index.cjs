@@ -2279,6 +2279,38 @@ app.get('/api/version', (req, res) => {
   res.json({ version: updater.currentVersion(), ok: true });
 });
 
+// ─── Applying an update ───
+// The runner is copied to a temp dir and detached, because it overwrites the
+// very tree this process is executing from. The request returns immediately;
+// the browser follows progress via /api/update/status across the restart that
+// necessarily kills its own connection.
+
+app.post('/api/update/apply', authMiddleware, async (req, res) => {
+  try {
+    const running = updater.readStatus();
+    if (running?.running) return res.status(409).json({ error: 'An update is already running' });
+
+    const check = await updater.check({ force: true });
+    if (!check.updateAvailable || !check.tarballUrl || !check.latestTag) {
+      return res.status(400).json({ error: 'No update available to install' });
+    }
+
+    const started = updater.startUpdate({ tag: check.latestTag, tarballUrl: check.tarballUrl });
+    auditLog('update_apply', req.ip, req.get('User-Agent'), {
+      from: check.currentVersion, to: check.latestVersion,
+    });
+    res.json({ started: true, ...started });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Unauthenticated on purpose: this is how the browser confirms the panel came
+// back after a restart, at which point it may have no valid token in hand.
+app.get('/api/update/status', (req, res) => {
+  res.json(updater.readStatus() || { running: false, ok: null, step: null });
+});
+
 // SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));

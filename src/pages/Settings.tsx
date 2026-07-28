@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, Download, CheckCircle2, WifiOff, AlertTriangle, RotateCcw } from 'lucide-react';
 import {
   checkForUpdate, saveUpdateConfig, resetDismissals, reasonLabel, formatChecked,
-  type UpdateCheck, type UpdateConfig,
+  applyUpdate, fetchUpdateStatus,
+  type UpdateCheck, type UpdateConfig, type UpdateStatus,
 } from '../lib/update';
 import { useToast } from '../lib/toast';
+import UpdateProgress from '../components/UpdateProgress';
 
 /**
  * Settings. Today it holds the update system; it exists as its own route
@@ -16,6 +18,8 @@ export default function Settings() {
   const [check, setCheck] = useState<UpdateCheck | null>(null);
   const [config, setConfig] = useState<UpdateConfig | null>(null);
   const [busy, setBusy] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [lastRun, setLastRun] = useState<UpdateStatus | null>(null);
 
   const load = async (force = false) => {
     setBusy(true);
@@ -35,6 +39,31 @@ export default function Settings() {
   };
 
   useEffect(() => { load(false); }, []);
+
+  // An update may already be running: started from another tab, or still
+  // finishing from before this page was opened.
+  useEffect(() => {
+    fetchUpdateStatus().then(s => {
+      if (!s) return;
+      if (s.running) setUpdating(true);
+      else if (s.finishedAt) setLastRun(s);
+    });
+  }, []);
+
+  const startUpdate = async () => {
+    const ok = await toast.confirm({
+      title: `Update to v${check?.latestVersion}?`,
+      description: 'The panel will restart. Terminal sessions end; PM2 apps keep running. If the new version fails to start, the previous one is restored automatically.',
+      confirmLabel: 'Update now',
+    });
+    if (!ok) return;
+    try {
+      await applyUpdate();
+      setUpdating(true);
+    } catch (e: any) {
+      toast.error(e.message || 'Could not start the update');
+    }
+  };
 
   const patch = async (p: Partial<UpdateConfig>) => {
     try { setConfig(await saveUpdateConfig(p)); }
@@ -73,8 +102,14 @@ export default function Settings() {
         </div>
 
         <div className="card-body space-y-4">
-          {/* Status reads as a sentence, not a status code. */}
-          <div className="flex items-start gap-3">
+          {/* While an update runs, progress replaces the controls entirely —
+              nothing else on this card is actionable until it finishes. */}
+          {updating ? (
+            <UpdateProgress onDone={s => { setUpdating(false); setLastRun(s); }} />
+          ) : (
+            <>
+              {/* Status reads as a sentence, not a status code. */}
+              <div className="flex items-start gap-3">
             <div className="mt-0.5 shrink-0">
               {available
                 ? <Download className="w-5 h-5 text-accent" aria-hidden="true" />
@@ -96,16 +131,32 @@ export default function Settings() {
           </div>
 
           {available && (
-            <div className="text-meta text-muted">
-              {check?.commitCount ? `${check.commitCount} commit${check.commitCount === 1 ? '' : 's'} since your version.` : null}
-              {check?.releaseUrl && (
-                <>
-                  {' '}
-                  <a href={check.releaseUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-                    View changes
-                  </a>
-                </>
-              )}
+            <div className="space-y-3">
+              <div className="text-meta text-muted">
+                {check?.commitCount ? `${check.commitCount} commit${check.commitCount === 1 ? '' : 's'} since your version.` : null}
+                {check?.releaseUrl && (
+                  <>
+                    {' '}
+                    <a href={check.releaseUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                      View changes
+                    </a>
+                  </>
+                )}
+              </div>
+              <button onClick={startUpdate} className="btn btn-primary gap-1.5">
+                <Download className="w-4 h-4" aria-hidden="true" />
+                Update to v{check?.latestVersion}
+              </button>
+            </div>
+          )}
+
+          {lastRun && !lastRun.running && (
+            <div className={`flex items-start gap-2 text-meta rounded-control px-3 py-2.5 border
+              ${lastRun.ok ? 'text-success bg-success/5 border-success/25' : 'text-danger bg-danger/5 border-danger/25'}`}>
+              {lastRun.ok
+                ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                : <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />}
+              <span>{lastRun.message}</span>
             </div>
           )}
 
@@ -170,17 +221,8 @@ export default function Settings() {
               </div>
             )}
           </div>
-
-          {/* Applying updates is deliberately not wired yet — saying so beats a
-              button that silently does nothing. */}
-          <div className="flex items-start gap-2 text-meta text-muted bg-raised border border-line
-                          rounded-control px-3 py-2.5">
-            <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" aria-hidden="true" />
-            <span>
-              Detection only for now. Installing updates from the panel is not enabled yet —
-              update manually until it is.
-            </span>
-          </div>
+            </>
+          )}
         </div>
       </section>
     </div>

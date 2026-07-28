@@ -31,6 +31,7 @@ export interface UpdateCheck {
   checkedAt: number;
   currentVersion: string;
   latestVersion: string | null;
+  latestTag: string | null;
   updateAvailable: boolean;
   releaseUrl: string | null;
   releaseName: string | null;
@@ -48,6 +49,50 @@ export interface UpdateCheck {
   cached?: boolean;
   notify?: { notify: boolean; reason?: string; until?: number };
   config?: UpdateConfig;
+}
+
+export interface UpdateStatus {
+  running: boolean;
+  ok: boolean | null;
+  step: string | null;
+  steps?: string[];
+  message?: string;
+  fromVersion?: string | null;
+  toVersion?: string | null;
+  startedAt?: number;
+  finishedAt?: number | null;
+  rolledBack?: boolean;
+  error?: string | null;
+  log?: string[];
+}
+
+export const STEP_LABELS: Record<string, string> = {
+  check: 'Checking',
+  backup: 'Backing up',
+  download: 'Downloading',
+  install: 'Installing dependencies',
+  build: 'Building',
+  verify: 'Verifying',
+  swap: 'Installing',
+  restart: 'Restarting',
+  done: 'Done',
+};
+
+export const applyUpdate = () => apiPost<{ started: boolean; pid: number }>('/api/update/apply');
+
+/**
+ * Status is fetched WITHOUT auth helpers on purpose. During the restart the
+ * server is briefly gone and the token may be unusable; this endpoint is
+ * public so the browser can still tell whether the panel came back.
+ */
+export async function fetchUpdateStatus(): Promise<UpdateStatus | null> {
+  try {
+    const res = await fetch('/api/update/status', { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null; // server is mid-restart: unreachable is expected, not an error
+  }
 }
 
 export type SnoozeDuration = '1h' | '1d' | '1w';

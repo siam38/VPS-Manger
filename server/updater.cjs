@@ -11,7 +11,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const https = require('https');
+const { spawn } = require('child_process');
 
 const REPO = 'siam38/VPS-Manger';
 const API = `https://api.github.com/repos/${REPO}`;
@@ -157,6 +159,7 @@ async function performCheck() {
     checkedAt: Date.now(),
     currentVersion: version,
     latestVersion: null,
+    latestTag: null,
     updateAvailable: false,
     releaseUrl: null,
     releaseName: null,
@@ -224,6 +227,7 @@ async function performCheck() {
   // thing once you publish a patch for an older line.
   const latest = releases.reduce((a, b) => (cmpVersion(b.tag_name, a.tag_name) > 0 ? b : a));
   base.latestVersion = String(latest.tag_name).replace(/^v/, '');
+  base.latestTag = latest.tag_name;
   base.releaseUrl = latest.html_url;
   base.releaseName = latest.name || latest.tag_name;
   base.releaseNotes = latest.body || null;
@@ -337,6 +341,61 @@ function startBackgroundChecks() {
   timer.unref?.();
 }
 
+// ─── applying ───
+
+const STATUS_FILE = path.join(__dirname, 'update-status.json');
+const RUNNER = path.join(ROOT, 'scripts', 'update-runner.mjs');
+
+function readStatus() {
+  try {
+    const s = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8'));
+    // A runner killed mid-flight would otherwise leave `running: true` forever.
+    if (s.running && Date.now() - (s.startedAt || 0) > 45 * 60 * 1000) {
+      return { ...s, running: false, ok: false, error: 'Update timed out' };
+    }
+    return s;
+  } catch { return null; }
+}
+
+/**
+ * Launch the runner detached, from a COPY outside the install directory.
+ *
+ * Running it in place would mean executing a file that the update is about to
+ * overwrite. Copying to a temp dir first removes that entire class of failure.
+ */
+function startUpdate({ tag, tarballUrl }) {
+  if (!fs.existsSync(RUNNER)) throw new Error('Update runner is missing from this installation');
+
+  const tmpRunner = path.join(
+    os.tmpdir(),
+    `vps-manager-update-runner-${Date.now()}.mjs`
+  );
+  fs.copyFileSync(RUNNER, tmpRunner);
+
+  const logFd = fs.openSync(path.join(os.tmpdir(), 'vps-manager-update.log'), 'a');
+  const child = spawn(process.execPath, [tmpRunner, ROOT, tag, tarballUrl], {
+    cwd: os.tmpdir(),
+    detached: true,
+    stdio: ['ignore', logFd, logFd],
+    env: { ...process.env },
+  });
+  child.unref();
+
+  const initial = {
+    running: true,
+    ok: null,
+    step: 'check',
+    message: 'Starting…',
+    fromVersion: currentVersion(),
+    toVersion: String(tag).replace(/^v/, ''),
+    startedAt: Date.now(),
+    pid: child.pid,
+    log: [],
+  };
+  try { writeJson(STATUS_FILE, initial); } catch {}
+  return { pid: child.pid, tag };
+}
+
 module.exports = {
   REPO,
   currentVersion,
@@ -345,6 +404,8 @@ module.exports = {
   saveConfig,
   check,
   readCache,
+  readStatus,
+  startUpdate,
   shouldNotify,
   startBackgroundChecks,
   DEFAULT_CONFIG,

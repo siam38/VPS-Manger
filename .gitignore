@@ -11,3 +11,5 @@ server/update-cache.json
 server/update-config.json
 server/update-cache.json.tmp
 server/update-config.json.tmp
+server/update-status.json
+server/update-status.json.tmp
