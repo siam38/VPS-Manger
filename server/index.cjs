@@ -1436,7 +1436,32 @@ const GIT_SYNC_CONFIG = path.join(__dirname, '..', 'git-sync-config.json');
 function gitExec(cwd, cmd) {
   // Use array form to avoid shell interpretation of special characters like |
   const args = cmd.match(/"[^"]*"|'[^']*'|\S+/g).map(a => a.replace(/^["']|["']$/g, ''));
-  return require('child_process').execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 30000, env: platform.gitEnv() }).trim();
+  const out = require('child_process').execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 30000, env: platform.gitEnv() });
+  // Trailing whitespace only. A full .trim() ate the LEADING column of
+  // `status --porcelain`, whose format is a two-character XY code then a
+  // space: an unstaged modification is " M package-lock.json", so trimming
+  // shifted every field left by one and reported the file as
+  // "ackage-lock.json". Staged changes ("M  file") happened to parse fine,
+  // which is why this survived — it only misreports the unstaged case.
+  return out.replace(/\s+$/, '');
+}
+
+/** Parse `git status --porcelain` into { status, file } pairs.
+ *
+ *  Centralised because the same substring arithmetic was repeated at five
+ *  call sites, and renames arrive as "R  old -> new" where the interesting
+ *  name is the destination. */
+function parsePorcelain(raw) {
+  return String(raw || '')
+    .split('\n')
+    .filter(l => l.length > 3)
+    .map(l => {
+      const status = l.substring(0, 2).trim();
+      let file = l.substring(3);
+      const arrow = file.indexOf(' -> ');
+      if (arrow !== -1) file = file.slice(arrow + 4);
+      return { status, file: file.replace(/^"|"$/g, '') };
+    });
 }
 
 function loadGitSyncConfig() {
@@ -1487,7 +1512,7 @@ app.get('/api/git/status', authMiddleware, (req, res) => {
   if (!repo) return res.status(400).json({ error: 'repo required' });
   try {
     const raw = gitExec(repo, 'status --porcelain');
-    const files = raw ? raw.split('\n').map(l => ({ status: l.substring(0, 2).trim(), file: l.substring(3) })) : [];
+    const files = parsePorcelain(raw);
     let ahead = 0, behind = 0;
     try { ahead = parseInt(gitExec(repo, 'rev-list @{u}..HEAD --count')); } catch {}
     try { behind = parseInt(gitExec(repo, 'rev-list HEAD..@{u} --count')); } catch {}

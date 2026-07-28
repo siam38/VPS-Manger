@@ -320,7 +320,20 @@ function restartStrategy() {
  * process answers and the update reports success. Port ownership is the fact
  * that actually matters here.
  */
-async function stopPanel(hintPid = null) {
+async function stopPanel(hintPid = null, strategy = null) {
+  // On systemd, stop the UNIT rather than the process.
+  //
+  // Killing the pid directly fights the supervisor: `Restart=on-failure`
+  // brings a fresh copy straight back up on the old code, which then holds
+  // the port while the swap is still in progress and answers the post-restart
+  // health check as though the update had worked.
+  if (strategy?.kind === 'systemd') {
+    const r = spawnSync('systemctl', ['stop', strategy.unit], { encoding: 'utf8', timeout: 120_000 });
+    log(`stop: systemctl stop ${strategy.unit} -> exit ${r.status}`);
+    if (r.status === 0) return 1;
+    // fall through to signalling if the unit refused to stop
+  }
+
   const pids = new Set(listenersOn(PORT));
 
   // Ask the panel who it is.
@@ -451,7 +464,10 @@ function envFrom(dir) {
 }
 
 function startPanel(strategy) {
-  if (strategy.kind === 'systemd') { run('systemctl', ['restart', strategy.unit], { timeout: 120_000 }); return; }
+  // `start`, not `restart`: stopPanel has already stopped the unit, and
+  // `restart` on a stopped unit that fails to start reports differently
+  // across systemd versions. Starting an already-stopped unit is unambiguous.
+  if (strategy.kind === 'systemd') { run('systemctl', ['start', strategy.unit], { timeout: 120_000 }); return; }
   if (strategy.kind === 'pm2') { run('pm2', ['restart', strategy.name], { timeout: 120_000 }); return; }
 
   const cmd = strategy.kind === 'script'
@@ -601,7 +617,7 @@ async function main() {
 
     // ── 7. swap ──
     setStep('swap', 'Installing the new version');
-    await stopPanel(beforePid);
+    await stopPanel(beforePid, strategy);
     await new Promise(r => setTimeout(r, 2500));
     // The old process must be gone before the new one binds, or the restart
     // fails with EADDRINUSE while the stale server keeps answering — which
@@ -665,7 +681,7 @@ async function main() {
       const recovery = restartError && finalStrategy.kind !== 'node'
         ? { kind: 'node' }
         : finalStrategy;
-      await stopPanel();
+      await stopPanel(null, finalStrategy);
       await new Promise(r => setTimeout(r, 2000));
       waitForPortFree(PORT, 20_000, [beforePid, live?.pid]);
       run('sh', ['-c',

@@ -491,6 +491,53 @@ function clearStatus() {
  * Running it in place would mean executing a file that the update is about to
  * overwrite. Copying to a temp dir first removes that entire class of failure.
  */
+/**
+ * Launch the runner detached, from a COPY outside the install directory.
+ *
+ * Running it in place would mean executing a file that the update is about to
+ * overwrite. Copying to a temp dir first removes that entire class of failure.
+ *
+ * On systemd hosts the runner must ALSO escape the service's cgroup. The panel
+ * is started by a unit, so every process it spawns is a member of that unit's
+ * cgroup — and `detached: true` only creates a new process group, which is a
+ * different thing entirely. The moment the runner stops the panel to perform
+ * the swap, systemd considers the unit stopped and tears the whole cgroup
+ * down, killing the runner mid-update. The observed result is an install left
+ * exactly at the 'swap' step: new files partly in place, service dead, nothing
+ * restarted and no rollback, because the process that would have done both no
+ * longer exists.
+ *
+ * `systemd-run --scope` places it in its own transient scope instead, so it
+ * survives the restart of the unit that started it.
+ */
+function runnerCommand(execPath, args) {
+  const pid1 = (() => {
+    try { return fs.readFileSync('/proc/1/comm', 'utf8').trim(); } catch { return ''; }
+  })();
+  if (pid1 !== 'systemd') return { cmd: execPath, args };
+
+  const hasSystemdRun = (() => {
+    try {
+      return require('child_process')
+        .spawnSync('which', ['systemd-run'], { encoding: 'utf8' }).status === 0;
+    } catch { return false; }
+  })();
+  if (!hasSystemdRun) return { cmd: execPath, args };
+
+  return {
+    cmd: 'systemd-run',
+    args: [
+      '--scope',
+      '--quiet',
+      // Collect the scope automatically once the runner exits.
+      '--collect',
+      `--unit=vps-manager-update-${Date.now()}`,
+      execPath,
+      ...args,
+    ],
+  };
+}
+
 function startUpdate({ tag, tarballUrl, auto = false }) {
   if (!fs.existsSync(RUNNER)) throw new Error('Update runner is missing from this installation');
 
@@ -501,7 +548,8 @@ function startUpdate({ tag, tarballUrl, auto = false }) {
   fs.copyFileSync(RUNNER, tmpRunner);
 
   const logFd = fs.openSync(path.join(os.tmpdir(), 'vps-manager-update.log'), 'a');
-  const child = spawn(process.execPath, [tmpRunner, ROOT, tag, tarballUrl], {
+  const { cmd, args } = runnerCommand(process.execPath, [tmpRunner, ROOT, tag, tarballUrl]);
+  const child = spawn(cmd, args, {
     cwd: os.tmpdir(),
     detached: true,
     stdio: ['ignore', logFd, logFd],
