@@ -288,8 +288,26 @@ let inFlight = null;
  */
 async function check({ force = false } = {}) {
   const config = loadConfig();
-  const cached = readCache();
+  const cachedRaw = readCache();
   const maxAge = Math.max(1, config.checkIntervalHours) * 3600 * 1000;
+
+  // A cached result describes the version that was installed WHEN IT WAS
+  // WRITTEN. After a successful update that version is gone, so the entry is
+  // not merely old — it is about a different install and every field derived
+  // from it (updateAvailable, the changelog, the from->to arrow) is wrong.
+  //
+  // The symptom is a panel that has just updated itself to 4.0.0 and then
+  // renders "3.11.0 -> 4.0.0 available" beside its own "Updated to v4.0.0"
+  // banner, because the post-restart page load is served the pre-update blob
+  // for the rest of the check interval. Age alone cannot detect that; the
+  // entry can be seconds old and still describe the previous install.
+  //
+  // Comparing against the version on disk is the authoritative test, the same
+  // reason /api/version captures its version at boot rather than trusting a
+  // stored copy.
+  const cached = cachedRaw && cachedRaw.currentVersion === currentVersion()
+    ? cachedRaw
+    : null;
 
   if (!force && cached && Date.now() - cached.checkedAt < maxAge) {
     return { ...cached, cached: true };
