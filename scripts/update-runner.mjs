@@ -495,6 +495,57 @@ function startPanel(strategy) {
 }
 
 /**
+ * Move git HEAD to the tag whose contents were just installed.
+ *
+ * The swap replaces files from a release tarball, which knows nothing about
+ * git — so HEAD stays pinned at whatever was installed before while the
+ * working tree holds the new version. Every file that differs between the two
+ * then shows up as a local modification, and the dirty-tree guard refuses the
+ * NEXT update on an install nobody has touched. Reconciling by hand after each
+ * update is exactly the kind of maintenance this system exists to remove.
+ *
+ * Strictly best-effort and always last: the panel is already live and healthy
+ * by this point, so a box with no git, no remote or no network (Debian reaches
+ * GitHub only via bundle) simply keeps its old HEAD and stays working. A
+ * bookkeeping fix must never be able to fail an update that succeeded.
+ */
+function reconcileGitHead(tag) {
+  if (!fs.existsSync(path.join(ROOT, '.git'))) return;
+
+  const git = (...a) => spawnSync('git', a, { cwd: ROOT, encoding: 'utf8', timeout: 120_000 });
+
+  // The tag is usually absent locally: it was published after this install was
+  // cloned. Fetching only tags keeps it cheap and touches no branches.
+  if (git('rev-parse', '--verify', `refs/tags/${tag}`).status !== 0) {
+    const fetched = git('fetch', '--tags', '--quiet', 'origin');
+    if (fetched.status !== 0) {
+      log(`git: could not fetch tags (${(fetched.stderr || '').trim().split('\n')[0] || 'no remote'}); leaving HEAD as is`);
+      return;
+    }
+  }
+  if (git('rev-parse', '--verify', `refs/tags/${tag}`).status !== 0) {
+    log(`git: tag ${tag} not found after fetch; leaving HEAD as is`);
+    return;
+  }
+
+  // `reset --hard` is safe here precisely because the tarball IS the tag: the
+  // working tree already holds that exact content, so this moves the ref and
+  // clears the phantom modifications without discarding anything real.
+  // Machine-local files (.env, sessions, config) are gitignored and untouched.
+  const reset = git('reset', '--hard', `refs/tags/${tag}`);
+  if (reset.status !== 0) {
+    log(`git: reset to ${tag} failed: ${(reset.stderr || '').trim().split('\n')[0]}`);
+    return;
+  }
+  // The reset REWRITES every file that differed, as root, so the whole tree
+  // needs its ownership restored again — not just .git. Chowning only the
+  // repo metadata left ~78 root-owned files in the working tree, which is the
+  // same EACCES trap the post-swap restore exists to prevent.
+  restoreOwner(STATUS_OWNER, ROOT);
+  log(`git: HEAD reconciled to ${tag}`);
+}
+
+/**
  * Is the only change to package-lock.json its `version` field?
  *
  * Compares the diff hunks rather than parsing: anything beyond version lines
@@ -528,7 +579,12 @@ async function main() {
       // The runner writes its own status file inside the tree, so it must not
       // count itself as a local modification.
       const OWN = ['server/update-status.json', 'server/update-status.json.tmp'];
-      const real = dirty.trim().split('\n').filter(Boolean).filter(line => {
+      // Trailing whitespace only. Porcelain format is a two-character XY code
+      // then a space, so an unstaged change is " M package-lock.json" — a full
+      // .trim() removes the leading status column and shifts every field left
+      // by one, yielding "ackage-lock.json". That silently defeated the
+      // lockfile tolerance below, because the filename never matched.
+      const real = dirty.replace(/\s+$/, '').split('\n').filter(Boolean).filter(line => {
         const file = line.slice(3).trim().replace(/^"|"$/g, '');
         if (OWN.includes(file)) return false;
         // npm rewrites package-lock.json's version field to match
@@ -734,6 +790,11 @@ async function main() {
     rmrf(STAGING);
     state.toVersion = live.version ?? state.toVersion;
     log(`panel live on v${state.toVersion}`);
+
+    // Bookkeeping only, and deliberately after the panel is confirmed healthy.
+    try { reconcileGitHead(TARGET_TAG); }
+    catch (err) { log(`git: reconcile skipped (${err?.message || err})`); }
+
     finish(true);
   } catch (err) {
     finish(false, err?.message || String(err));

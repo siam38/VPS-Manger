@@ -90,8 +90,12 @@ export default function Processes() {
           className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${autoRefresh ? 'bg-accent/10 text-accent border border-accent/20' : 'bg-raised text-muted border border-line'}`}>
           Auto: {autoRefresh ? 'ON' : 'OFF'}
         </button>
-        <button onClick={load} className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        <button
+          onClick={load}
+          aria-label="Refresh process list"
+          className="p-1.5 rounded-lg text-muted hover:text-white hover:bg-raised transition"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
         </button>
         <span className="text-xs text-subtle">{sorted.length} processes</span>
       </div>

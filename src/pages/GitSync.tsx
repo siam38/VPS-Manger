@@ -758,7 +758,13 @@ export default function GitSync() {
 
         <div className="flex items-center justify-between px-4 py-3 border-b border-line">
           <div className="flex items-center gap-2 text-muted text-sm font-medium"><FolderGit2 className="w-4 h-4" /> Repositories</div>
-          <button onClick={loadRepos} className="text-muted hover:text-white transition"><RefreshCw className="w-3.5 h-3.5" /></button>
+          <button
+            onClick={loadRepos}
+            aria-label="Rescan for repositories"
+            className="text-muted hover:text-white transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {repos.map(r => {
