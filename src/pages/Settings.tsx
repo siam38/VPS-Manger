@@ -237,6 +237,70 @@ export default function Settings() {
               </select>
             </label>
 
+            <label className="setting-row cursor-pointer">
+              <span className="min-w-0">
+                <span className="block text-body text-ink">Install updates automatically</span>
+                <span className="block text-label text-muted">
+                  Downloads, verifies and restarts the panel on its own. Rolls back if the
+                  new version does not come up.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={config?.autoInstall ?? false}
+                onChange={e => patch({ autoInstall: e.target.checked })}
+                className="shrink-0 w-4 h-4 accent-current"
+              />
+            </label>
+
+            {config?.autoInstall && (
+              <div className="setting-row">
+                <span className="min-w-0">
+                  <span className="block text-body text-ink">Only between</span>
+                  <span className="block text-label text-muted">
+                    An unattended install restarts the panel, so keep it out of hours.
+                    Leave off to install as soon as a version is found.
+                  </span>
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  <input
+                    type="time"
+                    value={config?.autoInstallWindow?.start ?? '03:00'}
+                    disabled={!config?.autoInstallWindow}
+                    onChange={e => patch({
+                      autoInstallWindow: {
+                        start: e.target.value,
+                        end: config?.autoInstallWindow?.end ?? '05:00',
+                      },
+                    })}
+                    className="field w-28 disabled:opacity-40"
+                  />
+                  <span className="text-label text-muted">and</span>
+                  <input
+                    type="time"
+                    value={config?.autoInstallWindow?.end ?? '05:00'}
+                    disabled={!config?.autoInstallWindow}
+                    onChange={e => patch({
+                      autoInstallWindow: {
+                        start: config?.autoInstallWindow?.start ?? '03:00',
+                        end: e.target.value,
+                      },
+                    })}
+                    className="field w-28 disabled:opacity-40"
+                  />
+                  <input
+                    type="checkbox"
+                    aria-label="Restrict automatic installs to a time window"
+                    checked={!!config?.autoInstallWindow}
+                    onChange={e => patch({
+                      autoInstallWindow: e.target.checked ? { start: '03:00', end: '05:00' } : null,
+                    })}
+                    className="w-4 h-4 accent-current"
+                  />
+                </span>
+              </div>
+            )}
+
             {(config?.snoozedUntil || config?.skippedVersion) && (
               <div className="setting-row">
                 <span className="min-w-0">

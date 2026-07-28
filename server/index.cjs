@@ -2252,7 +2252,34 @@ app.post('/api/update/config', authMiddleware, (req, res) => {
     }
     patch.checkIntervalHours = n;
   }
-  res.json(updater.saveConfig(patch));
+  if (patch.autoInstall !== undefined) patch.autoInstall = !!patch.autoInstall;
+
+  // An install window is either absent or fully specified. A half-set window
+  // ('start' with no 'end') would otherwise be silently treated as "any time",
+  // which is the opposite of what someone configuring a maintenance slot
+  // intends — unattended restarts landing in the middle of their working day.
+  if (patch.autoInstallWindow !== undefined && patch.autoInstallWindow !== null) {
+    const w = patch.autoInstallWindow;
+    const ok = v => /^\d{1,2}:\d{2}$/.test(String(v || '')) &&
+      Number(String(v).split(':')[0]) <= 23 && Number(String(v).split(':')[1]) <= 59;
+    if (!w || !ok(w.start) || !ok(w.end)) {
+      return res.status(400).json({ error: 'autoInstallWindow must be null or { start: "HH:MM", end: "HH:MM" }' });
+    }
+    if (w.start === w.end) {
+      return res.status(400).json({ error: 'autoInstallWindow start and end must differ' });
+    }
+    patch.autoInstallWindow = { start: w.start, end: w.end };
+  }
+
+  const next = updater.saveConfig(patch);
+
+  // The polling interval and the enabled flag are read when the timers are
+  // created, so a change means nothing until they are rebuilt. Without this,
+  // turning auto-install on only takes effect at the next panel restart.
+  if (['enabled', 'checkIntervalHours', 'autoInstall', 'autoInstallWindow'].some(k => k in patch)) {
+    updater.startBackgroundChecks();
+  }
+  res.json(next);
 });
 
 // Snooze: server-side on purpose, so dismissing on a phone is honoured on desktop.
@@ -2339,5 +2366,13 @@ process.on('SIGTERM', () => {
 
 server.listen(PORT, () => {
   console.log(`VPS Manager V3.1 running on port ${PORT}`);
+  // An unattended install restarts the panel with nobody watching, so it has
+  // to leave a trail. The hook fires at the decision point, before the runner
+  // takes the process down.
+  updater.setAutoInstallHook(decision => {
+    auditLog('update_auto_install', 'system', 'updater', {
+      from: updater.currentVersion(), to: decision.version, tag: decision.tag,
+    });
+  });
   updater.startBackgroundChecks();
 });

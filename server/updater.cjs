@@ -326,7 +326,103 @@ function shouldNotify(result, config = loadConfig()) {
   return { notify: true };
 }
 
+// ─── unattended installs ───
+
+/** Minutes since midnight for an 'HH:MM' string, or null if unparseable. */
+function minutesOf(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '').trim());
+  if (!m) return null;
+  const h = Number(m[1]), min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+/**
+ * Is `now` inside the configured install window?
+ *
+ * No window means "any time". A window that wraps past midnight (22:00–04:00)
+ * is the normal case for a maintenance slot, so the wrapped comparison is the
+ * point rather than an edge case.
+ */
+function inInstallWindow(window, now = new Date()) {
+  if (!window || !window.start || !window.end) return true;
+  const start = minutesOf(window.start);
+  const end = minutesOf(window.end);
+  if (start === null || end === null) return true; // malformed: don't block forever
+  const cur = now.getHours() * 60 + now.getMinutes();
+  return start <= end ? cur >= start && cur < end : cur >= start || cur < end;
+}
+
+/**
+ * Decide whether to install this result without asking.
+ *
+ * Deliberately honours skip and snooze exactly like the popup does: dismissing
+ * a version on your phone must not be overridden by a background timer
+ * installing it twenty minutes later. Auto-install changes WHO clicks the
+ * button, not WHICH versions are eligible.
+ *
+ * Prereleases are never auto-installed, even on the beta channel — opting into
+ * seeing them is not the same as opting into unattended installs of them.
+ */
+function autoInstallDecision(result, config = loadConfig(), now = new Date()) {
+  if (!config.enabled) return { install: false, reason: 'disabled' };
+  if (!config.autoInstall) return { install: false, reason: 'auto-install-off' };
+  if (!result?.updateAvailable) return { install: false, reason: result?.reason || 'up-to-date' };
+  if (!result.tarballUrl || !result.latestTag) return { install: false, reason: 'no-tarball' };
+  if (result.prerelease) return { install: false, reason: 'prerelease' };
+  if (config.skippedVersion && cmpVersion(config.skippedVersion, result.latestVersion) >= 0) {
+    return { install: false, reason: 'skipped' };
+  }
+  if (config.snoozedUntil && Date.now() < config.snoozedUntil) {
+    return { install: false, reason: 'snoozed', until: config.snoozedUntil };
+  }
+  if (!inInstallWindow(config.autoInstallWindow, now)) {
+    return { install: false, reason: 'outside-window', window: config.autoInstallWindow };
+  }
+
+  // Never start a second run on top of a live one, and never immediately
+  // retry a version that just failed: a broken release would otherwise be
+  // reinstalled every check interval, rolling the panel back and forth on its
+  // own. A failure is retried only after the retry backoff has elapsed.
+  const status = readStatus();
+  if (status?.running) return { install: false, reason: 'already-running' };
+  if (status && status.ok === false && status.toVersion === result.latestVersion) {
+    const since = Date.now() - (status.finishedAt || 0);
+    if (since < AUTO_RETRY_BACKOFF_MS) {
+      return { install: false, reason: 'recent-failure', retryAfter: (status.finishedAt || 0) + AUTO_RETRY_BACKOFF_MS };
+    }
+  }
+
+  return { install: true, tag: result.latestTag, tarballUrl: result.tarballUrl, version: result.latestVersion };
+}
+
+// A failed auto-install waits this long before the same version is retried.
+const AUTO_RETRY_BACKOFF_MS = 6 * 3600 * 1000;
+
 let timer = null;
+let windowTimer = null;
+let onAutoInstall = null;
+
+/** Called by the server so an unattended install can be written to the audit log. */
+function setAutoInstallHook(fn) { onAutoInstall = typeof fn === 'function' ? fn : null; }
+
+/**
+ * Evaluate the cached result for an unattended install, and start one if it
+ * qualifies. Safe to call often — every gate above is idempotent.
+ */
+function maybeAutoInstall(result) {
+  let decision;
+  try { decision = autoInstallDecision(result); }
+  catch { return { install: false, reason: 'error' }; }
+  if (!decision.install) return decision;
+  try {
+    const started = startUpdate({ tag: decision.tag, tarballUrl: decision.tarballUrl, auto: true });
+    try { onAutoInstall?.(decision); } catch {}
+    return { ...decision, started };
+  } catch (err) {
+    return { install: false, reason: 'start-failed', error: err.message };
+  }
+}
 
 /** Background polling. Runs shortly after boot, then on the configured
  *  interval. Failures are swallowed: an unreachable GitHub must never affect
@@ -334,11 +430,29 @@ let timer = null;
 function startBackgroundChecks() {
   const config = loadConfig();
   if (!config.enabled) return;
-  const run = () => { check({ force: true }).catch(() => {}); };
+  const run = () => {
+    check({ force: true }).then(result => { maybeAutoInstall(result); }).catch(() => {});
+  };
   setTimeout(run, 30_000).unref?.();
   if (timer) clearInterval(timer);
   timer = setInterval(run, Math.max(1, config.checkIntervalHours) * 3600 * 1000);
   timer.unref?.();
+
+  // A separate, cheap tick for the install window. Without it, a 6-hour check
+  // interval and a 2-hour maintenance window can miss each other indefinitely:
+  // the check that found the update ran outside the window, and the next one
+  // lands outside it too. This re-evaluates the CACHED result only — it makes
+  // no API calls, so it costs nothing against the 60/hour anonymous budget.
+  if (windowTimer) clearInterval(windowTimer);
+  windowTimer = setInterval(() => {
+    try {
+      const cfg = loadConfig();
+      if (!cfg.enabled || !cfg.autoInstall) return;
+      const cached = readCache();
+      if (cached) maybeAutoInstall(cached);
+    } catch {}
+  }, 10 * 60 * 1000);
+  windowTimer.unref?.();
 }
 
 // ─── applying ───
@@ -377,7 +491,7 @@ function clearStatus() {
  * Running it in place would mean executing a file that the update is about to
  * overwrite. Copying to a temp dir first removes that entire class of failure.
  */
-function startUpdate({ tag, tarballUrl }) {
+function startUpdate({ tag, tarballUrl, auto = false }) {
   if (!fs.existsSync(RUNNER)) throw new Error('Update runner is missing from this installation');
 
   const tmpRunner = path.join(
@@ -404,6 +518,7 @@ function startUpdate({ tag, tarballUrl }) {
     toVersion: String(tag).replace(/^v/, ''),
     startedAt: Date.now(),
     pid: child.pid,
+    auto,
     log: [],
   };
   try { writeJson(STATUS_FILE, initial); } catch {}
@@ -423,5 +538,9 @@ module.exports = {
   startUpdate,
   shouldNotify,
   startBackgroundChecks,
+  autoInstallDecision,
+  inInstallWindow,
+  maybeAutoInstall,
+  setAutoInstallHook,
   DEFAULT_CONFIG,
 };

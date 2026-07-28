@@ -144,6 +144,37 @@ function run(cmd, args, opts = {}) {
 
 function rmrf(p) { try { fs.rmSync(p, { recursive: true, force: true }); } catch {} }
 
+/**
+ * Who owns this install.
+ *
+ * Captured BEFORE anything is written, because the runner usually executes as
+ * root (the panel it restarts is a root process) while the checkout belongs to
+ * a human account. Every file the update writes would otherwise land
+ * root-owned, and every later edit — an editor save from the panel itself, a
+ * git operation, the next npm install — fails with EACCES on a tree that looks
+ * perfectly fine. Restoring ownership is not cosmetic; without it the update
+ * succeeds and leaves the install unmaintainable.
+ */
+function ownerOf(dir) {
+  try {
+    const st = fs.statSync(dir);
+    return { uid: st.uid, gid: st.gid };
+  } catch { return null; }
+}
+
+/** Re-apply the captured ownership across the tree. No-op when we are not root
+ *  or already own it — chown fails for an unprivileged caller. */
+function restoreOwner(owner, dir) {
+  if (!owner) return;
+  if (typeof process.getuid === 'function' && process.getuid() !== 0) return;
+  if (owner.uid === 0 && owner.gid === 0) return;
+  const r = spawnSync('chown', ['-R', `${owner.uid}:${owner.gid}`, dir], {
+    encoding: 'utf8', timeout: 120_000,
+  });
+  if (r.status === 0) log(`ownership restored to ${owner.uid}:${owner.gid}`);
+  else log(`could not restore ownership: ${(r.stderr || '').trim() || `exit ${r.status}`}`);
+}
+
 function download(url, dest, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 5) return reject(new Error('Too many redirects'));
@@ -432,6 +463,9 @@ async function main() {
     const strategy = restartStrategy();
     log(`restart strategy: ${strategy.kind}${strategy.unit ? ` (${strategy.unit})` : ''}`);
 
+    const owner = ownerOf(ROOT);
+    if (owner) log(`install owned by ${owner.uid}:${owner.gid}`);
+
     // ── 2. backup ──
     setStep('backup', 'Backing up current installation');
     rmrf(BACKUP);
@@ -542,6 +576,7 @@ async function main() {
       `cd ${JSON.stringify(STAGING)} && tar -cf - . | (cd ${JSON.stringify(ROOT)} && tar -xf -)`
     ]);
     log('files replaced');
+    restoreOwner(owner, ROOT);
 
     // ── 8. restart ──
     setStep('restart', 'Restarting the panel');
@@ -594,6 +629,7 @@ async function main() {
       run('sh', ['-c',
         `cd ${JSON.stringify(BACKUP)} && tar -cf - . | (cd ${JSON.stringify(ROOT)} && tar -xf -)`
       ]);
+      restoreOwner(owner, ROOT);
       try { startPanel(recovery); }
       catch (err) { log(`rollback restart failed: ${err?.message || err}`); }
       let back = await waitForHttp(PORT, 60_000, false);
