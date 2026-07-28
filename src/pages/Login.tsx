@@ -76,10 +76,10 @@ export default function Login({ onLogin }: Props) {
           <div className="hidden lg:block">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-11 h-11 rounded-card bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
-                <span className="text-accent text-page font-bold leading-none">V</span>
+                <span className="text-page leading-none" aria-hidden="true">🦊</span>
               </div>
               <div>
-                <h1 className="text-page font-semibold text-ink leading-tight">VPS Manager</h1>
+                <h1 className="text-page font-semibold text-ink leading-tight">Fox VPS Manager</h1>
                 <p className="text-meta text-muted leading-tight font-mono tabular">
                   v{version}
                 </p>
@@ -116,10 +116,10 @@ export default function Login({ onLogin }: Props) {
                   there, and an unlabelled password box is disorienting. */}
               <div className="lg:hidden flex items-center gap-2.5 mb-6">
                 <div className="w-9 h-9 rounded-card bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
-                  <span className="text-accent text-title font-bold leading-none">V</span>
+                  <span className="text-title leading-none" aria-hidden="true">🦊</span>
                 </div>
                 <div>
-                  <h1 className="text-title font-semibold text-ink leading-tight">VPS Manager</h1>
+                  <h1 className="text-title font-semibold text-ink leading-tight">Fox VPS Manager</h1>
                   <p className="text-label text-muted leading-tight font-mono tabular">v{version}</p>
                 </div>
               </div>

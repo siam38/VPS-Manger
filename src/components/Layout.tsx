@@ -65,7 +65,7 @@ export default function Layout({ children, onLogout }: Props) {
       >
         <div className={`flex items-center h-14 shrink-0 border-b border-line ${collapsed ? 'justify-center px-2' : 'px-4 gap-2.5'}`}>
           <div className="w-7 h-7 rounded-control bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
-            <span className="text-accent text-body font-bold leading-none">V</span>
+            <span className="text-body leading-none" aria-hidden="true">🦊</span>
           </div>
           {!collapsed && (
             /* The rail used to show the product name alone. Pairing it with the
@@ -73,7 +73,7 @@ export default function Layout({ children, onLogout }: Props) {
              * is on screen instead of requiring a shell. */
             <div className="min-w-0 leading-tight">
               <div className="font-semibold text-ink text-body tracking-tight truncate">
-                VPS Manager
+                Fox VPS Manager
               </div>
               <div className="flex items-center gap-1.5 text-label text-muted">
                 <span className="font-mono tabular">v{version}</span>
